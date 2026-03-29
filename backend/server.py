@@ -244,8 +244,30 @@ async def create_event(input: EventCreate):
     return event
 
 @api_router.get("/events", response_model=List[Event])
-async def get_events():
-    events = await db.events.find({}, {"_id": 0}).to_list(1000)
+async def get_events(limit: int = 100, skip: int = 0):
+    # Optimized query with field projection for list view
+    projection = {
+        "_id": 0,
+        "id": 1,
+        "person_name": 1,
+        "occasion_type": 1,
+        "custom_occasion": 1,
+        "event_date": 1,
+        "theme": 1,
+        "view_count": 1,
+        "created_at": 1,
+        "updated_at": 1,
+        "photos": 1,
+        "video_url": 1,
+        "special_note": 1,
+        "voice_message_url": 1,
+        "song_url": 1,
+        "easter_egg_message": 1,
+        "timeline": 1,
+        "custom_background_url": 1,
+        "custom_font": 1
+    }
+    events = await db.events.find({}, projection).skip(skip).limit(limit).to_list(limit)
     
     for event in events:
         if isinstance(event.get('created_at'), str):

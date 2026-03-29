@@ -117,7 +117,7 @@ const LandingPage = () => {
         >
           <div className="relative w-72 h-72 sm:w-96 sm:h-96">
             <motion.img
-              src="https://static.prod-images.emergentagent.com/jobs/2a33012d-0759-412a-8cfa-235cd879b4e4/images/3f3e3abf1c2e97af33efeb42afb593cb038a24d43193c86c3672ed3c3e8f83e8.png"
+              src={process.env.REACT_APP_CELEBRATION_IMAGE}
               alt="Celebration"
               className="w-full h-full object-contain float"
             />
