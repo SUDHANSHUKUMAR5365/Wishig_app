@@ -1,7 +1,6 @@
-# Environment files
+# Environment files - keep backend secret but commit frontend
 backend/.env
-frontend/.env
-*.env
+*.env.local
 
 # Python
 __pycache__/
