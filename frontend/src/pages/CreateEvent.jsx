@@ -71,8 +71,8 @@ const CreateEvent = () => {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     
-    // Return full URL for the file
-    return `${process.env.REACT_APP_BACKEND_URL}${response.data.url}`;
+    // Return full URL - Cloudinary returns direct URL
+    return response.data.url;
   };
 
   const handlePhotoUpload = async (e) => {

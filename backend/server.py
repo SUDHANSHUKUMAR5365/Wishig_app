@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
-import requests
+import cloudinary
+import cloudinary.uploader
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,52 +20,13 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Emergent Object Storage
-STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
-EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
-APP_NAME = "celebration-qr"
-storage_key = None
-
-def init_storage():
-    """Initialize storage and get session-scoped storage_key."""
-    global storage_key
-    if storage_key:
-        return storage_key
-    if not EMERGENT_KEY:
-        raise ValueError("EMERGENT_LLM_KEY not configured")
-    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
-    resp.raise_for_status()
-    storage_key = resp.json()["storage_key"]
-    return storage_key
-
-def put_object(path: str, data: bytes, content_type: str) -> dict:
-    """Upload file to storage."""
-    key = init_storage()
-    resp = requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data, timeout=120
-    )
-    resp.raise_for_status()
-    return resp.json()
-
-def get_object(path: str) -> tuple:
-    """Download file from storage."""
-    key = init_storage()
-    resp = requests.get(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key}, timeout=60
-    )
-    resp.raise_for_status()
-    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
-
-# MIME types
-MIME_TYPES = {
-    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-    "gif": "image/gif", "webp": "image/webp", "mp4": "video/mp4",
-    "mov": "video/quicktime", "mp3": "audio/mpeg", "wav": "audio/wav",
-    "ogg": "audio/ogg", "webm": "video/webm", "m4a": "audio/mp4"
-}
+# Cloudinary config
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET'),
+    secure=True
+)
 
 # Create the main app
 app = FastAPI()
@@ -167,69 +129,23 @@ async def root():
 async def get_themes():
     return THEMES
 
-# File upload endpoint
+# File upload endpoint - uses Cloudinary
 @api_router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(file: UploadFile = File(...), folder: str = "uploads"):
     try:
-        # Get file extension and content type
-        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
-        content_type = file.content_type or MIME_TYPES.get(ext, "application/octet-stream")
-        
-        # Generate unique path
-        file_id = str(uuid.uuid4())
-        path = f"{APP_NAME}/{folder}/{file_id}.{ext}"
-        
-        # Read file data
         data = await file.read()
-        
-        # Upload to storage
-        result = put_object(path, data, content_type)
-        
-        # Store file reference in DB
-        await db.files.insert_one({
-            "id": file_id,
-            "storage_path": result["path"],
-            "original_filename": file.filename,
-            "content_type": content_type,
-            "size": result.get("size", len(data)),
-            "folder": folder,
-            "is_deleted": False,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
-        
-        # Return URL that can be used to fetch the file
-        return FileUploadResponse(
-            url=f"/api/files/{result['path']}",
-            path=result["path"],
-            size=result.get("size", len(data))
+        # Detect resource type
+        resource_type = "video" if file.content_type and file.content_type.startswith(("video", "audio")) else "image"
+        result = cloudinary.uploader.upload(
+            data,
+            folder=f"celebration-qr/{folder}",
+            resource_type=resource_type
         )
+        url = result["secure_url"]
+        return FileUploadResponse(url=url, path=result["public_id"], size=result.get("bytes", len(data)))
     except Exception as e:
         logger.error(f"Upload error: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
-# File download endpoint
-@api_router.get("/files/{path:path}")
-async def download_file(path: str):
-    try:
-        # Check if file exists in DB
-        record = await db.files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
-        
-        if not record:
-            # Try to get directly from storage (for backward compatibility)
-            try:
-                data, content_type = get_object(path)
-                return Response(content=data, media_type=content_type)
-            except:
-                raise HTTPException(status_code=404, detail="File not found")
-        
-        # Get from storage
-        data, content_type = get_object(path)
-        return Response(content=data, media_type=record.get("content_type", content_type))
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Download error: {e}")
-        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 # Event CRUD
 @api_router.post("/events", response_model=Event)
@@ -350,11 +266,8 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup():
-    try:
-        init_storage()
-        logger.info("Emergent Object Storage initialized successfully")
-    except Exception as e:
-        logger.warning(f"Storage init deferred: {e}")
+    logger.info("Celebration QR API started")
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
