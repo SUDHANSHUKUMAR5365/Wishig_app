@@ -20,7 +20,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { getTheme } from '@/lib/themes';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const APP_URL = window.location.origin;
+const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
 const Dashboard = () => {
   const navigate = useNavigate();

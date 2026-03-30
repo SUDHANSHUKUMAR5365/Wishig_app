@@ -1,11 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Play, Pause, Volume2, VolumeX, ChevronLeft, ChevronRight,
-  X, Gift, Sparkles, Heart, Music, MessageSquare, Camera,
-  Cake, Award, Home
-} from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, X, Gift, Sparkles, Music, MessageSquare, Cake, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
@@ -15,182 +11,111 @@ import confetti from 'canvas-confetti';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Preloader Component
-const Preloader = ({ onComplete }) => {
+// Voice Note Timer - plays voice then shows cake
+const VoiceTimer = ({ voiceUrl, onComplete }) => {
+  const audioRef = useRef(null);
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [started, setStarted] = useState(false);
+
+  const start = () => {
+    setStarted(true);
+    if (audioRef.current) audioRef.current.play().catch(() => {});
+  };
+
+  // Once audio metadata loads, get real duration
+  const handleLoaded = () => {
+    if (audioRef.current) setTimeLeft(Math.ceil(audioRef.current.duration) || 10);
+  };
+
+  // If no voice URL, skip after 3s
   useEffect(() => {
-    const timer = setTimeout(onComplete, 2500);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
-
-  return (
-    <motion.div 
-      className="fixed inset-0 bg-[#0A0F1F] flex items-center justify-center z-50"
-      exit={{ opacity: 0 }}
-    >
-      <div className="text-center">
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="mb-8"
-        >
-          <Sparkles className="w-16 h-16 text-[#D4AF37] mx-auto" />
-        </motion.div>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="font-heading text-2xl text-white"
-        >
-          Something special is waiting for you...
-        </motion.p>
-      </div>
-    </motion.div>
-  );
-};
-
-// Countdown Component
-const Countdown = ({ onComplete }) => {
-  const [count, setCount] = useState(5);
+    if (!voiceUrl) { const t = setTimeout(onComplete, 3000); return () => clearTimeout(t); }
+  }, [voiceUrl, onComplete]);
 
   useEffect(() => {
-    if (count === 0) {
-      onComplete();
-      return;
-    }
-    const timer = setTimeout(() => setCount(count - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [count, onComplete]);
+    if (!started || timeLeft === null) return;
+    if (timeLeft <= 0) { onComplete(); return; }
+    const t = setTimeout(() => setTimeLeft(p => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [started, timeLeft, onComplete]);
 
-  return (
-    <motion.div 
-      className="fixed inset-0 bg-[#0A0F1F] flex items-center justify-center z-50"
-      exit={{ opacity: 0 }}
-    >
-      <motion.div
-        key={count}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 2, opacity: 0 }}
-        className="pulse-number"
-      >
-        <span className="font-heading text-9xl text-[#D4AF37]">{count}</span>
+  if (!voiceUrl) return (
+    <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50">
+      <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
+        <Sparkles className="w-16 h-16 text-[#D4AF37] mb-6" />
       </motion.div>
-    </motion.div>
+      <p className="text-white text-xl font-heading text-center">Something special is waiting...</p>
+    </div>
   );
-};
-
-// Curtain Animation Component
-const CurtainAnimation = ({ onComplete }) => {
-  useEffect(() => {
-    const timer = setTimeout(onComplete, 1500);
-    return () => clearTimeout(timer);
-  }, [onComplete]);
 
   return (
-    <motion.div className="fixed inset-0 z-50 flex" exit={{ opacity: 0 }}>
-      <motion.div
-        initial={{ x: 0 }}
-        animate={{ x: '-100%' }}
-        transition={{ duration: 1.5, ease: 'easeInOut' }}
-        className="w-1/2 h-full bg-gradient-to-r from-[#8B0000] to-[#DC143C]"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px)'
-        }}
-      />
-      <motion.div
-        initial={{ x: 0 }}
-        animate={{ x: '100%' }}
-        transition={{ duration: 1.5, ease: 'easeInOut' }}
-        className="w-1/2 h-full bg-gradient-to-l from-[#8B0000] to-[#DC143C]"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(0,0,0,0.1) 10px, rgba(0,0,0,0.1) 20px)'
-        }}
-      />
-    </motion.div>
+    <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50 px-6">
+      <audio ref={audioRef} src={voiceUrl} onLoadedMetadata={handleLoaded} onEnded={onComplete} />
+      <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
+        <Sparkles className="w-16 h-16 text-[#D4AF37] mb-6" />
+      </motion.div>
+      <p className="text-white text-xl font-heading mb-8 text-center">A special message for you...</p>
+      {!started ? (
+        <Button onClick={start} className="btn-gold px-8 py-4 text-lg rounded-full">
+          <Play className="w-5 h-5 mr-2" /> Play Message
+        </Button>
+      ) : (
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-24 h-24 rounded-full border-4 border-[#D4AF37] flex items-center justify-center">
+            <span className="text-[#D4AF37] text-4xl font-bold">{timeLeft ?? '...'}</span>
+          </div>
+          <p className="text-white/60 text-sm">Cake coming soon...</p>
+        </div>
+      )}
+    </div>
   );
 };
 
-// Interactive Cake Component
-const InteractiveCake = ({ theme, onBlowComplete }) => {
-  const [candlesLit, setCandlesLit] = useState(true);
+// Interactive Cake
+const InteractiveCake = ({ theme, candlesBlown, onBlowComplete }) => {
   const [showSmoke, setShowSmoke] = useState(false);
 
   const blowCandles = () => {
-    if (!candlesLit) return;
-    setCandlesLit(false);
+    if (candlesBlown) return;
     setShowSmoke(true);
-    
-    // Trigger confetti
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: [theme.colors.primary, theme.colors.secondary, '#FFD700']
-    });
-    
-    setTimeout(() => {
-      setShowSmoke(false);
-      onBlowComplete();
-    }, 2000);
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: [theme.colors.primary, theme.colors.secondary, '#FFD700'] });
+    setTimeout(() => { setShowSmoke(false); onBlowComplete(); }, 2000);
   };
 
   return (
     <div className="relative flex flex-col items-center">
-      {/* Cake */}
-      <div className="relative">
-        <svg width="200" height="180" viewBox="0 0 200 180">
-          {/* Cake base */}
-          <ellipse cx="100" cy="160" rx="80" ry="15" fill={theme.colors.secondary} opacity="0.5" />
-          <rect x="30" y="100" width="140" height="60" rx="10" fill="#D2691E" />
-          <rect x="20" y="140" width="160" height="25" rx="8" fill="#8B4513" />
-          
-          {/* Frosting */}
-          <path d="M30 100 Q50 80 100 85 Q150 80 170 100" fill="#FFF8DC" />
-          
-          {/* Decorations */}
-          {[40, 70, 100, 130, 160].map((x, i) => (
-            <circle key={i} cx={x} cy="130" r="5" fill={theme.colors.primary} />
-          ))}
-          
-          {/* Candles */}
-          {[60, 100, 140].map((x, i) => (
-            <g key={i}>
-              <rect x={x-3} y="60" width="6" height="40" fill="#FFE4C4" />
-              {candlesLit && (
-                <g className="flame">
-                  <ellipse cx={x} cy="55" rx="8" ry="12" fill="#FF6B00" />
-                  <ellipse cx={x} cy="52" rx="4" ry="8" fill="#FFD700" />
-                </g>
-              )}
-              {showSmoke && (
-                <g className="smoke">
-                  <circle cx={x} cy="45" r="6" fill="#888" opacity="0.6" />
-                  <circle cx={x-5} cy="35" r="4" fill="#888" opacity="0.4" />
-                  <circle cx={x+5} cy="30" r="3" fill="#888" opacity="0.2" />
-                </g>
-              )}
-            </g>
-          ))}
-        </svg>
-      </div>
-      
-      {/* Blow button */}
-      {candlesLit && (
-        <Button
-          data-testid="blow-candles-btn"
-          onClick={blowCandles}
-          className="mt-6 btn-gold px-8 py-4 rounded-full text-lg"
-        >
-          <span className="mr-2">🎂</span>
-          Blow Candles
+      <svg width="200" height="180" viewBox="0 0 200 180">
+        <ellipse cx="100" cy="160" rx="80" ry="15" fill={theme.colors.secondary} opacity="0.5" />
+        <rect x="30" y="100" width="140" height="60" rx="10" fill="#D2691E" />
+        <rect x="20" y="140" width="160" height="25" rx="8" fill="#8B4513" />
+        <path d="M30 100 Q50 80 100 85 Q150 80 170 100" fill="#FFF8DC" />
+        {[40, 70, 100, 130, 160].map((x, i) => <circle key={i} cx={x} cy="130" r="5" fill={theme.colors.primary} />)}
+        {[60, 100, 140].map((x, i) => (
+          <g key={i}>
+            <rect x={x - 3} y="60" width="6" height="40" fill="#FFE4C4" />
+            {!candlesBlown && !showSmoke && (
+              <g>
+                <ellipse cx={x} cy="55" rx="8" ry="12" fill="#FF6B00" />
+                <ellipse cx={x} cy="52" rx="4" ry="8" fill="#FFD700" />
+              </g>
+            )}
+            {showSmoke && (
+              <g>
+                <circle cx={x} cy="45" r="6" fill="#888" opacity="0.6" />
+                <circle cx={x - 5} cy="35" r="4" fill="#888" opacity="0.4" />
+                <circle cx={x + 5} cy="30" r="3" fill="#888" opacity="0.2" />
+              </g>
+            )}
+          </g>
+        ))}
+      </svg>
+      {!candlesBlown && !showSmoke && (
+        <Button data-testid="blow-candles-btn" onClick={blowCandles} className="mt-6 btn-gold px-8 py-4 rounded-full text-lg">
+          <span className="mr-2">🎂</span> Blow Candles
         </Button>
       )}
-      
-      {!candlesLit && !showSmoke && (
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 text-[#D4AF37] font-heading text-xl"
-        >
+      {candlesBlown && !showSmoke && (
+        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 text-[#D4AF37] font-heading text-xl">
           Make a wish! ✨
         </motion.p>
       )}
@@ -198,78 +123,62 @@ const InteractiveCake = ({ theme, onBlowComplete }) => {
   );
 };
 
-// Balloon Pop Game
+// Balloon Pop Game - full screen float
 const BalloonPopGame = ({ theme, onComplete }) => {
-  const [balloons, setBalloons] = useState([]);
-  const [score, setScore] = useState(0);
-  const [gameActive, setGameActive] = useState(true);
-
-  useEffect(() => {
-    const colors = [theme.colors.primary, theme.colors.secondary, '#FF6B6B', '#4ECDC4', '#FFD700'];
-    const initialBalloons = Array.from({ length: 15 }, (_, i) => ({
+  const colors = [theme.colors.primary, theme.colors.secondary, '#FF6B6B', '#4ECDC4', '#FFD700'];
+  const [balloons, setBalloons] = useState(() =>
+    Array.from({ length: 15 }, (_, i) => ({
       id: i,
       x: Math.random() * 80 + 10,
+      size: 40 + Math.random() * 20,
       color: colors[Math.floor(Math.random() * colors.length)],
-      delay: Math.random() * 2,
-      popped: false
-    }));
-    setBalloons(initialBalloons);
-  }, [theme]);
+      duration: 5 + Math.random() * 4,
+      delay: Math.random() * 3,
+      popped: false,
+    }))
+  );
+  const [score, setScore] = useState(0);
+  const [done, setDone] = useState(false);
 
-  const popBalloon = (id) => {
+  const pop = (id) => {
     setBalloons(prev => prev.map(b => b.id === id ? { ...b, popped: true } : b));
-    setScore(prev => prev + 1);
-    
-    if (score + 1 >= 15) {
-      setGameActive(false);
-      confetti({
-        particleCount: 200,
-        spread: 160,
-        origin: { y: 0.5 }
-      });
-      setTimeout(onComplete, 2000);
+    const newScore = score + 1;
+    setScore(newScore);
+    if (newScore >= 15) {
+      setDone(true);
+      confetti({ particleCount: 200, spread: 160, origin: { y: 0.5 } });
+      setTimeout(onComplete, 1500);
     }
   };
 
   return (
-    <div className="relative w-full h-[400px] overflow-hidden rounded-xl bg-gradient-to-b from-sky-400/20 to-sky-600/20">
-      <div className="absolute top-4 left-4 bg-white/10 backdrop-blur px-4 py-2 rounded-full">
-        <span className="text-white font-bold">Score: {score}/15</span>
+    <div className="relative w-full h-[500px] overflow-hidden rounded-xl bg-gradient-to-b from-sky-900/40 to-sky-600/20">
+      <div className="absolute top-4 left-4 bg-white/10 backdrop-blur px-4 py-2 rounded-full z-10">
+        <span className="text-white font-bold">🎈 {score}/15</span>
       </div>
-      
-      {balloons.map((balloon) => !balloon.popped && (
+      {balloons.map(b => !b.popped && (
         <motion.div
-          key={balloon.id}
-          initial={{ y: '120%' }}
-          animate={{ y: '-20%' }}
-          transition={{
-            duration: 4 + Math.random() * 2,
-            delay: balloon.delay,
-            repeat: gameActive ? Infinity : 0,
-            repeatDelay: Math.random() * 2
-          }}
-          className="absolute cursor-pointer balloon-float"
-          style={{ left: `${balloon.x}%` }}
-          onClick={() => popBalloon(balloon.id)}
-          data-testid={`balloon-${balloon.id}`}
+          key={b.id}
+          className="absolute cursor-pointer"
+          style={{ left: `${b.x}%`, bottom: 0 }}
+          initial={{ y: '100%' }}
+          animate={{ y: '-120%' }}
+          transition={{ duration: b.duration, delay: b.delay, repeat: done ? 0 : Infinity, repeatDelay: Math.random() * 2 }}
+          onClick={() => pop(b.id)}
+          data-testid={`balloon-${b.id}`}
         >
-          <svg width="50" height="60" viewBox="0 0 50 60">
-            <ellipse cx="25" cy="25" rx="20" ry="25" fill={balloon.color} />
-            <path d="M25 50 L25 60" stroke={balloon.color} strokeWidth="2" />
+          <svg width={b.size} height={b.size * 1.2} viewBox="0 0 50 60">
+            <ellipse cx="25" cy="25" rx="20" ry="25" fill={b.color} />
+            <path d="M25 50 L25 60" stroke={b.color} strokeWidth="2" />
             <ellipse cx="18" cy="18" rx="5" ry="8" fill="white" opacity="0.3" />
           </svg>
         </motion.div>
       ))}
-      
-      {!gameActive && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="absolute inset-0 flex items-center justify-center bg-black/50"
-        >
+      {done && (
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute inset-0 flex items-center justify-center bg-black/50">
           <div className="text-center">
             <Award className="w-16 h-16 text-[#D4AF37] mx-auto mb-4" />
-            <p className="font-heading text-3xl text-white">You Won!</p>
+            <p className="font-heading text-3xl text-white">You Won! 🎉</p>
           </div>
         </motion.div>
       )}
@@ -277,59 +186,45 @@ const BalloonPopGame = ({ theme, onComplete }) => {
   );
 };
 
-// Gift Box Game
-const GiftBoxGame = ({ theme, onComplete }) => {
-  const messages = [
-    'You are amazing! 🌟',
-    'Best wishes! 🎉',
-    'Keep shining! ✨',
-    'You rock! 🎸',
-    'Stay awesome! 💫',
-    'Happiness always! 🌈'
-  ];
-  
-  const [boxes, setBoxes] = useState(
-    Array.from({ length: 6 }, (_, i) => ({
-      id: i,
-      opened: false,
-      message: messages[i]
-    }))
-  );
+// Gift Box - shows uploaded photos
+const GiftBoxGame = ({ theme, photos, onComplete }) => {
+  const fallbackMessages = ['You are amazing! 🌟', 'Best wishes! 🎉', 'Keep shining! ✨', 'You rock! 🎸', 'Stay awesome! 💫', 'Happiness always! 🌈'];
+  const items = Array.from({ length: 6 }, (_, i) => ({
+    id: i,
+    photo: photos && photos[i] ? photos[i].url : null,
+    message: fallbackMessages[i],
+  }));
+
+  const [boxes, setBoxes] = useState(items.map(it => ({ ...it, opened: false })));
   const [openedCount, setOpenedCount] = useState(0);
 
   const openBox = (id) => {
     setBoxes(prev => prev.map(b => b.id === id ? { ...b, opened: true } : b));
-    setOpenedCount(prev => prev + 1);
-    
-    if (openedCount + 1 >= 6) {
-      confetti({
-        particleCount: 150,
-        spread: 120,
-        origin: { y: 0.5 }
-      });
-      setTimeout(onComplete, 2000);
+    const newCount = openedCount + 1;
+    setOpenedCount(newCount);
+    if (newCount >= 6) {
+      confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 } });
+      setTimeout(onComplete, 1500);
     }
   };
 
   return (
     <div className="grid grid-cols-3 gap-4 p-4">
-      {boxes.map((box) => (
+      {boxes.map(box => (
         <motion.div
           key={box.id}
-          className={`aspect-square rounded-xl cursor-pointer ${
-            box.opened ? 'bg-white/5' : 'gift-shake'
-          }`}
+          className={`aspect-square rounded-xl cursor-pointer overflow-hidden ${!box.opened ? 'gift-shake' : ''}`}
           style={{ backgroundColor: box.opened ? 'transparent' : theme.colors.primary + '30' }}
           onClick={() => !box.opened && openBox(box.id)}
           data-testid={`gift-box-${box.id}`}
         >
           {box.opened ? (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="w-full h-full flex items-center justify-center p-2"
-            >
-              <p className="text-white text-center text-sm">{box.message}</p>
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-full h-full flex items-center justify-center">
+              {box.photo ? (
+                <img src={box.photo} alt="" className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <p className="text-white text-center text-sm p-2">{box.message}</p>
+              )}
             </motion.div>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -342,595 +237,275 @@ const GiftBoxGame = ({ theme, onComplete }) => {
   );
 };
 
-// Photo Gallery Component
-const PhotoGallery = ({ photos, theme }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  const nextPhoto = () => setCurrentIndex((prev) => (prev + 1) % photos.length);
-  const prevPhoto = () => setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length);
-
-  useEffect(() => {
-    const interval = setInterval(nextPhoto, 5000);
-    return () => clearInterval(interval);
-  }, [photos.length]);
-
-  if (photos.length === 0) return null;
-
-  return (
-    <div className="relative">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentIndex}
-          initial={{ opacity: 0, x: 100 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -100 }}
-          className="relative aspect-video rounded-xl overflow-hidden"
-        >
-          <img
-            src={photos[currentIndex].url}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        </motion.div>
-      </AnimatePresence>
-
-      <button
-        onClick={prevPhoto}
-        className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white"
-        data-testid="photo-prev-btn"
-      >
-        <ChevronLeft className="w-6 h-6" />
-      </button>
-      
-      <button
-        onClick={nextPhoto}
-        className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white"
-        data-testid="photo-next-btn"
-      >
-        <ChevronRight className="w-6 h-6" />
-      </button>
-
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        {photos.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrentIndex(i)}
-            className={`w-2 h-2 rounded-full transition-all ${
-              i === currentIndex ? 'bg-white w-4' : 'bg-white/50'
-            }`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// Music Player Component
-const MusicPlayer = ({ songUrl, autoPlay = false }) => {
+// Looping Music Player
+const MusicPlayer = ({ songUrl }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    if (autoPlay && audioRef.current) {
+    if (audioRef.current) {
+      audioRef.current.loop = true;
       audioRef.current.play().catch(() => {});
       setIsPlaying(true);
     }
-  }, [autoPlay]);
+  }, [songUrl]);
 
   const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
+    if (!audioRef.current) return;
+    if (isPlaying) { audioRef.current.pause(); } else { audioRef.current.play(); }
+    setIsPlaying(!isPlaying);
   };
 
   const toggleMute = () => {
-    if (audioRef.current) {
-      audioRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
+    if (audioRef.current) { audioRef.current.muted = !isMuted; setIsMuted(!isMuted); }
   };
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      const progress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
-      setProgress(progress || 0);
-    }
+    if (audioRef.current) setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100 || 0);
   };
 
   const handleSeek = (value) => {
-    if (audioRef.current) {
-      const time = (value[0] / 100) * audioRef.current.duration;
-      audioRef.current.currentTime = time;
-      setProgress(value[0]);
-    }
+    if (audioRef.current) { audioRef.current.currentTime = (value[0] / 100) * audioRef.current.duration; setProgress(value[0]); }
   };
 
   if (!songUrl) return null;
 
   return (
-    <div className="glass rounded-xl p-4">
-      <audio
-        ref={audioRef}
-        src={songUrl}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={() => setIsPlaying(false)}
-      />
-      
-      <div className="flex items-center gap-4">
-        <button
-          onClick={togglePlay}
-          className="w-12 h-12 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#0A0F1F]"
-          data-testid="music-play-btn"
-        >
-          {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
-        </button>
-        
-        <div className="flex-1">
-          <Slider
-            value={[progress]}
-            onValueChange={handleSeek}
-            max={100}
-            step={0.1}
-            className="cursor-pointer"
-          />
-        </div>
-        
-        <button
-          onClick={toggleMute}
-          className="text-white"
-          data-testid="music-mute-btn"
-        >
-          {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-        </button>
-      </div>
+    <div className="glass rounded-xl p-3 flex items-center gap-3">
+      <audio ref={audioRef} src={songUrl} onTimeUpdate={handleTimeUpdate} loop />
+      <button onClick={togglePlay} className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#0A0F1F] shrink-0" data-testid="music-play-btn">
+        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+      </button>
+      <Slider value={[progress]} onValueChange={handleSeek} max={100} step={0.1} className="flex-1 cursor-pointer" />
+      <button onClick={toggleMute} className="text-white shrink-0" data-testid="music-mute-btn">
+        {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+      </button>
     </div>
   );
 };
 
-// Voice Message Component
-const VoiceMessage = ({ voiceUrl }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef(null);
-
-  const togglePlay = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  if (!voiceUrl) return null;
-
-  return (
-    <div className="glass rounded-xl p-6">
-      <audio ref={audioRef} src={voiceUrl} onEnded={() => setIsPlaying(false)} />
-      
-      <div className="flex items-center gap-4">
-        <button
-          onClick={togglePlay}
-          className="w-14 h-14 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#0A0F1F]"
-          data-testid="voice-play-btn"
-        >
-          {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
-        </button>
-        
-        <div className="flex-1">
-          <p className="text-white font-medium mb-2">Voice Message</p>
-          <div className="flex gap-1">
-            {[...Array(20)].map((_, i) => (
-              <div
-                key={i}
-                className={`w-1 bg-[#D4AF37] rounded-full ${isPlaying ? 'waveform-bar' : ''}`}
-                style={{
-                  height: `${20 + Math.random() * 30}px`,
-                  animationDelay: `${i * 0.05}s`
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Special Note Component
+// Special Note with typewriter
 const SpecialNote = ({ note, theme }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [isTyping, setIsTyping] = useState(true);
-
+  const [displayed, setDisplayed] = useState('');
   useEffect(() => {
     if (!note) return;
-    
-    let index = 0;
-    const timer = setInterval(() => {
-      if (index <= note.length) {
-        setDisplayedText(note.slice(0, index));
-        index++;
-      } else {
-        setIsTyping(false);
-        clearInterval(timer);
-      }
-    }, 30);
-
-    return () => clearInterval(timer);
+    let i = 0;
+    const t = setInterval(() => { if (i <= note.length) { setDisplayed(note.slice(0, i)); i++; } else clearInterval(t); }, 30);
+    return () => clearInterval(t);
   }, [note]);
-
   if (!note) return null;
-
   return (
-    <div 
-      className="glass rounded-xl p-6 relative overflow-hidden"
-      style={{ borderColor: theme.colors.primary + '30' }}
-    >
+    <div className="glass rounded-xl p-6" style={{ borderColor: theme.colors.primary + '30' }}>
       <MessageSquare className="w-8 h-8 mb-4" style={{ color: theme.colors.primary }} />
-      <p className="text-white text-lg leading-relaxed">
-        {displayedText}
-        {isTyping && <span className="animate-pulse">|</span>}
-      </p>
+      <p className="text-white text-lg leading-relaxed">{displayed}<span className="animate-pulse">|</span></p>
     </div>
   );
 };
 
-// Main Celebration Experience
+// Main
 const CelebrationExperience = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [phase, setPhase] = useState('preloader'); // preloader, countdown, curtain, main
-  const [activeSection, setActiveSection] = useState('greeting');
-  const [tapCount, setTapCount] = useState(0);
+
+  // Flow phases: voiceTimer → cake → scroll (game → gifts → message)
+  const alreadyBlown = sessionStorage.getItem(`candles_${eventId}`) === 'true';
+  const [phase, setPhase] = useState(alreadyBlown ? 'scroll' : 'voiceTimer');
+  const [candlesBlown, setCandlesBlown] = useState(alreadyBlown);
+  const [gameComplete, setGameComplete] = useState(false);
+  const [giftsComplete, setGiftsComplete] = useState(false);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
   const tapTimeoutRef = useRef(null);
 
   const theme = event ? getTheme(event.theme) : getTheme('royal_gold');
 
   useEffect(() => {
-    const fetchEvent = async () => {
-      try {
-        const response = await axios.get(`${API}/events/${eventId}`);
-        setEvent(response.data);
-      } catch (error) {
-        toast.error('Event not found');
-        navigate('/');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvent();
+    axios.get(`${API}/events/${eventId}`)
+      .then(r => setEvent(r.data))
+      .catch(() => { toast.error('Event not found'); navigate('/'); })
+      .finally(() => setLoading(false));
   }, [eventId, navigate]);
+
+  const handleBlowComplete = () => {
+    sessionStorage.setItem(`candles_${eventId}`, 'true');
+    setCandlesBlown(true);
+    toast.success('Make a wish! ✨');
+    setTimeout(() => setPhase('scroll'), 1500);
+  };
 
   const handleTitleTap = useCallback(() => {
     setTapCount(prev => {
-      const newCount = prev + 1;
-      
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-      }
-      
+      const n = prev + 1;
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
       tapTimeoutRef.current = setTimeout(() => setTapCount(0), 1000);
-      
-      if (newCount >= 3 && event?.easter_egg_message) {
+      if (n >= 3 && event?.easter_egg_message) {
         setShowEasterEgg(true);
-        confetti({
-          particleCount: 200,
-          spread: 180,
-          colors: ['#D4AF37', '#FFD700', '#FFF8DC']
-        });
+        confetti({ particleCount: 200, spread: 180, colors: ['#D4AF37', '#FFD700', '#FFF8DC'] });
         return 0;
       }
-      
-      return newCount;
+      return n;
     });
   }, [event]);
 
   const getGreeting = () => {
     if (!event) return '';
-    
-    switch (event.occasion_type) {
-      case 'birthday':
-        return 'Happy Birthday';
-      case 'anniversary':
-        return 'Happy Anniversary';
-      case 'custom':
-        return event.custom_occasion || 'Congratulations';
-      default:
-        return 'Congratulations';
-    }
+    if (event.occasion_type === 'birthday') return 'Happy Birthday';
+    if (event.occasion_type === 'anniversary') return 'Happy Anniversary';
+    return event.custom_occasion || 'Congratulations';
   };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-[#0A0F1F] flex items-center justify-center">
-        <Sparkles className="w-12 h-12 text-[#D4AF37] animate-pulse" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="fixed inset-0 bg-[#0A0F1F] flex items-center justify-center">
+      <Sparkles className="w-12 h-12 text-[#D4AF37] animate-pulse" />
+    </div>
+  );
 
   return (
-    <div 
-      className="min-h-screen relative overflow-hidden"
-      style={{ backgroundColor: theme.colors.background }}
-    >
-      {/* Phase Animations */}
+    <div className="min-h-screen relative" style={{ backgroundColor: theme.colors.background }}>
+
+      {/* Phase: Voice Timer */}
       <AnimatePresence>
-        {phase === 'preloader' && (
-          <Preloader onComplete={() => setPhase('countdown')} />
-        )}
-        {phase === 'countdown' && (
-          <Countdown onComplete={() => setPhase('curtain')} />
-        )}
-        {phase === 'curtain' && (
-          <CurtainAnimation onComplete={() => setPhase('main')} />
+        {phase === 'voiceTimer' && (
+          <motion.div key="voice" exit={{ opacity: 0 }}>
+            <VoiceTimer
+              voiceUrl={event?.voice_message_url}
+              onComplete={() => setPhase('cake')}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
-      {phase === 'main' && (
+      {/* Phase: Cake */}
+      {phase === 'cake' && (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8 }}
-          className="min-h-screen"
+          className="fixed inset-0 flex flex-col items-center justify-center z-40"
+          style={{ backgroundColor: theme.colors.background }}
         >
-          {/* Floating particles background */}
+          {/* Floating particles */}
           <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            {[...Array(20)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute w-2 h-2 rounded-full"
+            {[...Array(15)].map((_, i) => (
+              <motion.div key={i} className="absolute w-2 h-2 rounded-full"
                 style={{ backgroundColor: theme.colors.primary }}
-                initial={{
-                  x: Math.random() * window.innerWidth,
-                  y: Math.random() * window.innerHeight,
-                  opacity: 0.3
-                }}
-                animate={{
-                  y: [null, Math.random() * -300],
-                  opacity: [0.3, 0.6, 0.3]
-                }}
-                transition={{
-                  duration: 5 + Math.random() * 5,
-                  repeat: Infinity,
-                  repeatType: 'reverse'
-                }}
+                initial={{ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, opacity: 0.3 }}
+                animate={{ y: [null, Math.random() * -300], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 5 + Math.random() * 5, repeat: Infinity, repeatType: 'reverse' }}
               />
             ))}
           </div>
 
-          {/* Header */}
-          <div className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-center">
-            <button
-              onClick={() => navigate('/')}
-              className="text-white/70 hover:text-white transition-colors"
-              data-testid="back-home-btn"
-            >
-              <Home className="w-6 h-6" />
-            </button>
-            
-            {event?.song_url && (
-              <div className="flex-1 max-w-xs mx-4">
-                <MusicPlayer songUrl={event.song_url} autoPlay />
-              </div>
-            )}
-          </div>
+          <motion.h1
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
+            className="font-heading text-4xl mb-2 text-center px-4"
+            style={{ color: theme.colors.primary }}
+            onClick={handleTitleTap}
+          >
+            {getGreeting()}
+          </motion.h1>
+          <motion.h2
+            initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+            className="font-heading text-3xl mb-8 text-center"
+            style={{ color: theme.colors.text || '#fff' }}
+          >
+            {event?.person_name}!
+          </motion.h2>
 
-          {/* Main Greeting */}
-          <div className="pt-24 pb-12 px-4 text-center">
-            <motion.div
-              onClick={handleTitleTap}
-              className="cursor-pointer"
-              whileTap={{ scale: 0.98 }}
-            >
-              <motion.h1
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="font-heading text-4xl sm:text-5xl lg:text-6xl mb-4"
-                style={{ 
-                  color: theme.colors.primary,
-                  fontFamily: theme.font
-                }}
-                data-testid="celebration-greeting"
-              >
-                {getGreeting()}
-              </motion.h1>
-              
-              <motion.h2
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="font-heading text-3xl sm:text-4xl"
-                style={{ color: theme.colors.text }}
-              >
-                {event?.person_name}!
-              </motion.h2>
-            </motion.div>
-          </div>
+          <InteractiveCake theme={theme} candlesBlown={candlesBlown} onBlowComplete={handleBlowComplete} />
 
-          {/* Section Navigation */}
-          <div className="flex justify-center gap-2 mb-8 px-4 flex-wrap">
-            {[
-              { id: 'greeting', icon: Sparkles, label: 'Home' },
-              { id: 'cake', icon: Cake, label: 'Cake' },
-              { id: 'games', icon: Gift, label: 'Games' },
-              { id: 'gallery', icon: Camera, label: 'Gallery' },
-              { id: 'message', icon: MessageSquare, label: 'Message' },
-            ].map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`px-4 py-2 rounded-full flex items-center gap-2 transition-all ${
-                  activeSection === section.id
-                    ? 'text-[#0A0F1F]'
-                    : 'bg-white/10 text-white hover:bg-white/20'
-                }`}
-                style={{
-                  backgroundColor: activeSection === section.id ? theme.colors.primary : undefined
-                }}
-                data-testid={`section-${section.id}-btn`}
-              >
-                <section.icon className="w-4 h-4" />
-                <span className="text-sm">{section.label}</span>
-              </button>
-            ))}
-          </div>
+          {/* Secret message hint */}
+          {event?.easter_egg_message && (
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} transition={{ delay: 2 }}
+              className="mt-8 text-white/40 text-xs text-center">
+              💡 Tap the name 3 times for a secret message
+            </motion.p>
+          )}
+        </motion.div>
+      )}
 
-          {/* Content Sections */}
-          <div className="max-w-2xl mx-auto px-4 pb-24">
-            <AnimatePresence mode="wait">
-              {activeSection === 'greeting' && (
-                <motion.div
-                  key="greeting"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-6"
-                >
-                  {event?.special_note && (
-                    <SpecialNote note={event.special_note} theme={theme} />
-                  )}
-                  
-                  {event?.voice_message_url && (
-                    <VoiceMessage voiceUrl={event.voice_message_url} />
-                  )}
-                </motion.div>
+      {/* Phase: Scroll page */}
+      {phase === 'scroll' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen">
+
+          {/* Music player fixed top */}
+          {event?.song_url && (
+            <div className="fixed top-0 left-0 right-0 z-40 p-3 bg-[#0A0F1F]/80 backdrop-blur">
+              <MusicPlayer songUrl={event.song_url} />
+            </div>
+          )}
+
+          <div className={`max-w-2xl mx-auto px-4 pb-24 space-y-12 ${event?.song_url ? 'pt-20' : 'pt-8'}`}>
+
+            {/* Greeting */}
+            <div className="text-center pt-4" onClick={handleTitleTap}>
+              <h1 className="font-heading text-4xl mb-2" style={{ color: theme.colors.primary }}>{getGreeting()}</h1>
+              <h2 className="font-heading text-3xl" style={{ color: theme.colors.text || '#fff' }}>{event?.person_name}!</h2>
+              {event?.easter_egg_message && (
+                <p className="mt-3 text-white/40 text-xs">💡 Tap the name 3 times for a secret message</p>
               )}
+            </div>
 
-              {activeSection === 'cake' && (
-                <motion.div
-                  key="cake"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="flex justify-center py-8"
-                >
-                  <InteractiveCake 
-                    theme={theme} 
-                    onBlowComplete={() => toast.success('Wish made! ✨')} 
+            {/* Game Section */}
+            <div>
+              <h3 className="font-heading text-xl text-white mb-4 text-center">🎈 Pop the Balloons!</h3>
+              <BalloonPopGame theme={theme} onComplete={() => setGameComplete(true)} />
+            </div>
+
+            {/* Gifts - unlocked after game */}
+            <AnimatePresence>
+              {gameComplete && (
+                <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
+                  <div className="glass rounded-xl p-4 mb-4 text-center">
+                    <Award className="w-8 h-8 text-[#D4AF37] mx-auto mb-2" />
+                    <p className="text-[#D4AF37] font-heading text-lg">Reward Unlocked! Open your gifts 🎁</p>
+                  </div>
+                  <GiftBoxGame
+                    theme={theme}
+                    photos={event?.photos || []}
+                    onComplete={() => setGiftsComplete(true)}
                   />
                 </motion.div>
               )}
+            </AnimatePresence>
 
-              {activeSection === 'games' && (
-                <motion.div
-                  key="games"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h3 className="font-heading text-xl text-white mb-4 text-center">
-                      Pop the Balloons!
-                    </h3>
-                    <BalloonPopGame 
-                      theme={theme} 
-                      onComplete={() => toast.success('Amazing! 🎈')} 
-                    />
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-heading text-xl text-white mb-4 text-center">
-                      Open the Gifts!
-                    </h3>
-                    <GiftBoxGame 
-                      theme={theme} 
-                      onComplete={() => toast.success('All gifts opened! 🎁')} 
-                    />
-                  </div>
-                </motion.div>
-              )}
-
-              {activeSection === 'gallery' && (
-                <motion.div
-                  key="gallery"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  {event?.photos?.length > 0 ? (
-                    <PhotoGallery photos={event.photos} theme={theme} />
-                  ) : (
-                    <div className="glass rounded-xl p-12 text-center">
-                      <Camera className="w-16 h-16 text-[#94A3B8] mx-auto mb-4" />
-                      <p className="text-[#94A3B8]">No photos added</p>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {activeSection === 'message' && (
-                <motion.div
-                  key="message"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  {event?.special_note ? (
-                    <SpecialNote note={event.special_note} theme={theme} />
-                  ) : (
-                    <div className="glass rounded-xl p-12 text-center">
-                      <MessageSquare className="w-16 h-16 text-[#94A3B8] mx-auto mb-4" />
-                      <p className="text-[#94A3B8]">No message added</p>
-                    </div>
-                  )}
+            {/* Message - shown after gifts opened */}
+            <AnimatePresence>
+              {giftsComplete && event?.special_note && (
+                <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
+                  <SpecialNote note={event.special_note} theme={theme} />
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
 
-          {/* Easter Egg Modal */}
-          <AnimatePresence>
-            {showEasterEgg && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-                onClick={() => setShowEasterEgg(false)}
-              >
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  className="glass rounded-2xl p-8 max-w-md text-center"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Sparkles className="w-16 h-16 text-[#D4AF37] mx-auto mb-4" />
-                  <h3 className="font-heading text-2xl text-white mb-4">
-                    Secret Message!
-                  </h3>
-                  <p className="text-white text-lg">
-                    {event?.easter_egg_message || 'You found the secret! 🎉'}
-                  </p>
-                  <Button
-                    onClick={() => setShowEasterEgg(false)}
-                    className="mt-6 btn-gold"
-                    data-testid="close-easter-egg-btn"
-                  >
-                    Close
-                  </Button>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          </div>
         </motion.div>
       )}
+
+      {/* Easter Egg Modal */}
+      <AnimatePresence>
+        {showEasterEgg && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setShowEasterEgg(false)}
+          >
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+              className="glass rounded-2xl p-8 max-w-md text-center"
+              onClick={e => e.stopPropagation()}
+            >
+              <Sparkles className="w-16 h-16 text-[#D4AF37] mx-auto mb-4" />
+              <h3 className="font-heading text-2xl text-white mb-4">Secret Message! 🤫</h3>
+              <p className="text-white text-lg">{event?.easter_egg_message}</p>
+              <Button onClick={() => setShowEasterEgg(false)} className="mt-6 btn-gold" data-testid="close-easter-egg-btn">
+                Close
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
