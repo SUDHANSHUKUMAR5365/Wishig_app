@@ -16,30 +16,41 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
   const audioRef = useRef(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [started, setStarted] = useState(false);
-  const onCompleteRef = useRef(onComplete);
-  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  const doneRef = useRef(false);
 
-  const start = () => {
-    setStarted(true);
-    if (audioRef.current) audioRef.current.play().catch(() => {});
-  };
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    onComplete();
+  }, [onComplete]);
+
+  // Always fallback after 30s max no matter what
+  useEffect(() => {
+    const t = setTimeout(finish, 30000);
+    return () => clearTimeout(t);
+  }, [finish]);
+
+  // No voice — skip after 2s
+  useEffect(() => {
+    if (!voiceUrl) { const t = setTimeout(finish, 2000); return () => clearTimeout(t); }
+  }, [voiceUrl, finish]);
 
   const handleLoaded = () => {
     if (audioRef.current) setTimeLeft(Math.ceil(audioRef.current.duration) || 10);
   };
 
+  const start = () => {
+    setStarted(true);
+    if (audioRef.current) audioRef.current.play().catch(() => finish());
+  };
+
   // countdown tick
   useEffect(() => {
     if (!started || timeLeft === null) return;
-    if (timeLeft <= 0) { onCompleteRef.current(); return; }
+    if (timeLeft <= 0) { finish(); return; }
     const t = setTimeout(() => setTimeLeft(p => p - 1), 1000);
     return () => clearTimeout(t);
-  }, [started, timeLeft]);
-
-  // no voice — skip after 2s
-  useEffect(() => {
-    if (!voiceUrl) { const t = setTimeout(() => onCompleteRef.current(), 2000); return () => clearTimeout(t); }
-  }, [voiceUrl]);
+  }, [started, timeLeft, finish]);
 
   if (!voiceUrl) return (
     <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50">
@@ -52,7 +63,7 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
 
   return (
     <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50 px-6">
-      <audio ref={audioRef} src={voiceUrl} onLoadedMetadata={handleLoaded} onEnded={() => onCompleteRef.current()} />
+      <audio ref={audioRef} src={voiceUrl} onLoadedMetadata={handleLoaded} onEnded={finish} onError={finish} />
       <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
         <Sparkles className="w-16 h-16 text-[#D4AF37] mb-6" />
       </motion.div>
@@ -67,13 +78,46 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
             <span className="text-[#D4AF37] text-4xl font-bold">{timeLeft ?? '...'}</span>
           </div>
           <p className="text-white/60 text-sm">Cake coming soon...</p>
+          <button onClick={finish} className="text-white/30 text-xs underline mt-2">Skip</button>
         </div>
       )}
     </div>
   );
 };
 
-// Interactive Cake
+// Background floating balloons - shown throughout all phases
+const FloatingBalloons = ({ theme }) => {
+  const colors = [theme.colors.primary, theme.colors.secondary, '#FF6B6B', '#4ECDC4', '#FFD700'];
+  const balloons = Array.from({ length: 10 }, (_, i) => ({
+    id: i,
+    x: 5 + (i * 10) % 90,
+    size: 30 + (i % 3) * 10,
+    color: colors[i % colors.length],
+    duration: 6 + (i % 4) * 2,
+    delay: i * 0.8,
+  }));
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      {balloons.map(b => (
+        <motion.div
+          key={b.id}
+          className="absolute"
+          style={{ left: `${b.x}%`, bottom: 0 }}
+          initial={{ y: '110vh' }}
+          animate={{ y: '-20vh' }}
+          transition={{ duration: b.duration, delay: b.delay, repeat: Infinity, repeatDelay: 1 }}
+        >
+          <svg width={b.size} height={b.size * 1.3} viewBox="0 0 50 65" opacity="0.5">
+            <ellipse cx="25" cy="25" rx="20" ry="25" fill={b.color} />
+            <path d="M25 50 Q27 55 25 60 Q23 55 25 50" stroke={b.color} strokeWidth="1.5" fill="none" />
+            <ellipse cx="18" cy="18" rx="5" ry="8" fill="white" opacity="0.25" />
+          </svg>
+        </motion.div>
+      ))}
+    </div>
+  );
+};
 const InteractiveCake = ({ theme, candlesBlown, onBlowComplete }) => {
   const [showSmoke, setShowSmoke] = useState(false);
 
@@ -154,7 +198,7 @@ const BalloonPopGame = ({ theme, onComplete }) => {
   };
 
   return (
-    <div className="relative w-full h-[500px] overflow-hidden rounded-xl bg-gradient-to-b from-sky-900/40 to-sky-600/20">
+    <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-900/40 to-sky-600/20" style={{ height: '80vh' }}>
       <div className="absolute top-4 left-4 bg-white/10 backdrop-blur px-4 py-2 rounded-full z-10">
         <span className="text-white font-bold">🎈 {score}/15</span>
       </div>
@@ -369,6 +413,9 @@ const CelebrationExperience = () => {
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: theme.colors.background }}>
 
+      {/* Background floating balloons throughout all phases */}
+      {event && <FloatingBalloons theme={theme} />}
+
       {/* Phase: Voice Timer */}
       <AnimatePresence>
         {phase === 'voiceTimer' && (
@@ -431,11 +478,11 @@ const CelebrationExperience = () => {
 
       {/* Phase: Scroll page */}
       {phase === 'scroll' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen" style={{ backgroundColor: theme.colors.background }}>
 
           {/* Music player fixed top */}
           {event?.song_url && (
-            <div className="fixed top-0 left-0 right-0 z-40 p-3 bg-[#0A0F1F]/80 backdrop-blur">
+            <div className="fixed top-0 left-0 right-0 z-40 p-3 backdrop-blur" style={{ backgroundColor: theme.colors.background + 'CC' }}>
               <MusicPlayer songUrl={event.song_url} />
             </div>
           )}
@@ -445,15 +492,15 @@ const CelebrationExperience = () => {
             {/* Greeting */}
             <div className="text-center pt-4" onClick={handleTitleTap}>
               <h1 className="font-heading text-4xl mb-2" style={{ color: theme.colors.primary }}>{getGreeting()}</h1>
-              <h2 className="font-heading text-3xl" style={{ color: theme.colors.text || '#fff' }}>{event?.person_name}!</h2>
+              <h2 className="font-heading text-3xl" style={{ color: theme.colors.text }}>{event?.person_name}!</h2>
               {event?.easter_egg_message && (
-                <p className="mt-3 text-white/40 text-xs">💡 Tap the name 3 times for a secret message</p>
+                <p className="mt-3 text-xs" style={{ color: theme.colors.text + '60' }}>💡 Tap the name 3 times for a secret message</p>
               )}
             </div>
 
             {/* Game Section */}
             <div>
-              <h3 className="font-heading text-xl text-white mb-4 text-center">🎈 Pop the Balloons!</h3>
+              <h3 className="font-heading text-xl mb-4 text-center" style={{ color: theme.colors.text }}>🎈 Pop the Balloons!</h3>
               <BalloonPopGame theme={theme} onComplete={() => setGameComplete(true)} />
             </div>
 
