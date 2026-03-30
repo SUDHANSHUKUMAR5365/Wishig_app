@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, ChevronRight, User, Calendar, Image, Video, 
   MessageSquare, Mic, Music, Palette, Check, Loader2, Upload,
-  X, Sparkles
+  X, Sparkles, QrCode, Copy, Download, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getThemesByCategory } from '@/lib/themes';
+import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -36,11 +37,14 @@ const occasionTypes = [
   { id: 'custom', label: 'Custom', emoji: '✨' },
 ];
 
+const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+
 const CreateEvent = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
+  const [createdEventId, setCreatedEventId] = useState(null);
   
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
@@ -180,8 +184,8 @@ const CreateEvent = () => {
       };
 
       const response = await axios.post(`${API}/events`, eventData);
-      toast.success('Celebration created successfully!');
-      navigate(`/celebrate/${response.data.id}`);
+      toast.success('Celebration created!');
+      setCreatedEventId(response.data.id);
     } catch (error) {
       console.error('Error creating event:', error);
       toast.error('Failed to create celebration');
@@ -525,6 +529,37 @@ const CreateEvent = () => {
         return null;
     }
   };
+
+  const celebrationUrl = createdEventId ? `${APP_URL}/celebrate/${createdEventId}` : '';
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(celebrationUrl);
+    toast.success('Link copied!');
+  };
+
+  if (createdEventId) return (
+    <div className="min-h-screen bg-[#0A0F1F] flex items-center justify-center px-4">
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass rounded-2xl p-8 max-w-sm w-full text-center">
+        <Sparkles className="w-12 h-12 text-[#D4AF37] mx-auto mb-4" />
+        <h2 className="font-heading text-2xl text-white mb-2">Celebration Ready! 🎉</h2>
+        <p className="text-[#94A3B8] mb-6 text-sm">Share this QR code or link</p>
+        <div className="bg-white p-4 rounded-xl inline-block mb-6">
+          <QRCodeSVG value={celebrationUrl} size={200} level="H" includeMargin />
+        </div>
+        <div className="flex gap-2 mb-4">
+          <Button onClick={copyLink} className="flex-1 bg-white/10 hover:bg-white/20 text-white">
+            <Copy className="w-4 h-4 mr-2" /> Copy Link
+          </Button>
+          <Button onClick={() => navigate(`/celebrate/${createdEventId}`)} className="flex-1 btn-gold">
+            <ExternalLink className="w-4 h-4 mr-2" /> Open
+          </Button>
+        </div>
+        <button onClick={() => navigate('/dashboard')} className="text-[#94A3B8] text-sm hover:text-white">
+          Go to Dashboard
+        </button>
+      </motion.div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">

@@ -16,28 +16,30 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
   const audioRef = useRef(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [started, setStarted] = useState(false);
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   const start = () => {
     setStarted(true);
     if (audioRef.current) audioRef.current.play().catch(() => {});
   };
 
-  // Once audio metadata loads, get real duration
   const handleLoaded = () => {
     if (audioRef.current) setTimeLeft(Math.ceil(audioRef.current.duration) || 10);
   };
 
-  // If no voice URL, skip after 3s
-  useEffect(() => {
-    if (!voiceUrl) { const t = setTimeout(onComplete, 3000); return () => clearTimeout(t); }
-  }, [voiceUrl, onComplete]);
-
+  // countdown tick
   useEffect(() => {
     if (!started || timeLeft === null) return;
-    if (timeLeft <= 0) { onComplete(); return; }
+    if (timeLeft <= 0) { onCompleteRef.current(); return; }
     const t = setTimeout(() => setTimeLeft(p => p - 1), 1000);
     return () => clearTimeout(t);
-  }, [started, timeLeft, onComplete]);
+  }, [started, timeLeft]);
+
+  // no voice — skip after 2s
+  useEffect(() => {
+    if (!voiceUrl) { const t = setTimeout(() => onCompleteRef.current(), 2000); return () => clearTimeout(t); }
+  }, [voiceUrl]);
 
   if (!voiceUrl) return (
     <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50">
@@ -50,7 +52,7 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
 
   return (
     <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50 px-6">
-      <audio ref={audioRef} src={voiceUrl} onLoadedMetadata={handleLoaded} onEnded={onComplete} />
+      <audio ref={audioRef} src={voiceUrl} onLoadedMetadata={handleLoaded} onEnded={() => onCompleteRef.current()} />
       <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
         <Sparkles className="w-16 h-16 text-[#D4AF37] mb-6" />
       </motion.div>
@@ -477,6 +479,22 @@ const CelebrationExperience = () => {
               {giftsComplete && event?.special_note && (
                 <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
                   <SpecialNote note={event.special_note} theme={theme} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Video - shown after gifts opened */}
+            <AnimatePresence>
+              {giftsComplete && event?.video_url && (
+                <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
+                  <div className="glass rounded-xl overflow-hidden">
+                    <video
+                      src={event.video_url}
+                      controls
+                      className="w-full rounded-xl"
+                      style={{ maxHeight: '400px' }}
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
