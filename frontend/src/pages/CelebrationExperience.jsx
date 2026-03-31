@@ -85,20 +85,20 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
   );
 };
 
-// Background floating balloons - shown throughout all phases
+// Background floating balloons - shown throughout all phases (NOT in game)
 const FloatingBalloons = ({ theme }) => {
   const colors = [theme.colors.primary, theme.colors.secondary, '#FF6B6B', '#4ECDC4', '#FFD700'];
-  const balloons = Array.from({ length: 10 }, (_, i) => ({
+  const balloons = Array.from({ length: 8 }, (_, i) => ({
     id: i,
-    x: 5 + (i * 10) % 90,
-    size: 30 + (i % 3) * 10,
+    x: 5 + (i * 12) % 88,
+    size: 25 + (i % 3) * 10,
     color: colors[i % colors.length],
-    duration: 6 + (i % 4) * 2,
-    delay: i * 0.8,
+    duration: 7 + (i % 4) * 2,
+    delay: i * 1.2,
   }));
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
       {balloons.map(b => (
         <motion.div
           key={b.id}
@@ -108,7 +108,7 @@ const FloatingBalloons = ({ theme }) => {
           animate={{ y: '-20vh' }}
           transition={{ duration: b.duration, delay: b.delay, repeat: Infinity, repeatDelay: 1 }}
         >
-          <svg width={b.size} height={b.size * 1.3} viewBox="0 0 50 65" opacity="0.5">
+          <svg width={b.size} height={b.size * 1.3} viewBox="0 0 50 65" opacity="0.4">
             <ellipse cx="25" cy="25" rx="20" ry="25" fill={b.color} />
             <path d="M25 50 Q27 55 25 60 Q23 55 25 50" stroke={b.color} strokeWidth="1.5" fill="none" />
             <ellipse cx="18" cy="18" rx="5" ry="8" fill="white" opacity="0.25" />
@@ -169,17 +169,17 @@ const InteractiveCake = ({ theme, candlesBlown, onBlowComplete }) => {
   );
 };
 
-// Balloon Pop Game - full screen float
+// Balloon Pop Game
 const BalloonPopGame = ({ theme, onComplete }) => {
   const colors = [theme.colors.primary, theme.colors.secondary, '#FF6B6B', '#4ECDC4', '#FFD700'];
   const [balloons, setBalloons] = useState(() =>
     Array.from({ length: 15 }, (_, i) => ({
       id: i,
-      x: Math.random() * 80 + 10,
-      size: 40 + Math.random() * 20,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      duration: 5 + Math.random() * 4,
-      delay: Math.random() * 3,
+      x: 5 + (i * 6) % 85,
+      size: 40 + (i % 3) * 15,
+      color: colors[i % colors.length],
+      duration: 4 + (i % 5) * 1.5,
+      delay: i * 0.4,
       popped: false,
     }))
   );
@@ -198,7 +198,10 @@ const BalloonPopGame = ({ theme, onComplete }) => {
   };
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl bg-gradient-to-b from-sky-900/40 to-sky-600/20" style={{ height: '80vh' }}>
+    <div
+      className="relative w-full rounded-xl bg-gradient-to-b from-sky-900/40 to-sky-600/20"
+      style={{ height: '80vh', overflow: 'hidden', zIndex: 2 }}
+    >
       <div className="absolute top-4 left-4 bg-white/10 backdrop-blur px-4 py-2 rounded-full z-10">
         <span className="text-white font-bold">🎈 {score}/15</span>
       </div>
@@ -206,10 +209,10 @@ const BalloonPopGame = ({ theme, onComplete }) => {
         <motion.div
           key={b.id}
           className="absolute cursor-pointer"
-          style={{ left: `${b.x}%`, bottom: 0 }}
-          initial={{ y: '100%' }}
-          animate={{ y: '-120%' }}
-          transition={{ duration: b.duration, delay: b.delay, repeat: done ? 0 : Infinity, repeatDelay: Math.random() * 2 }}
+          style={{ left: `${b.x}%` }}
+          initial={{ bottom: -80 }}
+          animate={{ bottom: '110%' }}
+          transition={{ duration: b.duration, delay: b.delay, repeat: done ? 0 : Infinity, repeatDelay: 0.5, ease: 'linear' }}
           onClick={() => pop(b.id)}
           data-testid={`balloon-${b.id}`}
         >
@@ -221,7 +224,7 @@ const BalloonPopGame = ({ theme, onComplete }) => {
         </motion.div>
       ))}
       {done && (
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute inset-0 flex items-center justify-center bg-black/50">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute inset-0 flex items-center justify-center bg-black/50" style={{ zIndex: 10 }}>
           <div className="text-center">
             <Award className="w-16 h-16 text-[#D4AF37] mx-auto mb-4" />
             <p className="font-heading text-3xl text-white">You Won! 🎉</p>
