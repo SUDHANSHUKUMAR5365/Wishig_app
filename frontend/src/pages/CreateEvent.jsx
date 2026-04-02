@@ -66,7 +66,7 @@ const CreateEvent = () => {
     timeline: [],
   });
 
-  // Upload file to backend (Emergent Object Storage)
+  // Upload file to backend storage
   const uploadFile = async (file, folder) => {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);

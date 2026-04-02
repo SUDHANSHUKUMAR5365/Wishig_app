@@ -223,7 +223,7 @@ const LandingPage = () => {
             <span className="text-white font-heading">Celebration QR</span>
           </div>
           <p className="text-[#94A3B8] text-sm">
-            Made with love for special moments
+            Built by Sudhanshu Kumar
           </p>
         </div>
       </footer>
