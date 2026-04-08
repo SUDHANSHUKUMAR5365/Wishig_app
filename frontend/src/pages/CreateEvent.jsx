@@ -18,6 +18,8 @@ import { getThemesByCategory } from '@/lib/themes';
 import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 
+import { useAuth } from '@/lib/auth';
+
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const steps = [
@@ -41,6 +43,7 @@ const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
 const CreateEvent = () => {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -195,7 +198,9 @@ const CreateEvent = () => {
         flip_cards: formData.flip_cards.filter(c => c.trim() !== ''),
       };
 
-      const response = await axios.post(`${API}/events`, eventData);
+      const response = await axios.post(`${API}/events`, eventData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       toast.success('Celebration created!');
       setCreatedEventId(response.data.id);
     } catch (error) {

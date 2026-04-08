@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Sparkles, Plus, Trash2, Eye, QrCode, Share2, Copy, 
-  ChevronLeft, Calendar, ExternalLink, Download
+  ChevronLeft, Calendar, ExternalLink, Download, LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -19,11 +19,14 @@ import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import { getTheme } from '@/lib/themes';
 
+import { useAuth } from '@/lib/auth';
+
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { token, logout } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -37,10 +40,11 @@ const Dashboard = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get(`${API}/events`);
+      const response = await axios.get(`${API}/events`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setEvents(response.data);
     } catch (error) {
-      console.error('Error fetching events:', error);
       toast.error('Failed to load events');
     } finally {
       setLoading(false);
@@ -49,9 +53,10 @@ const Dashboard = () => {
 
   const deleteEvent = async () => {
     if (!eventToDelete) return;
-    
     try {
-      await axios.delete(`${API}/events/${eventToDelete.id}`);
+      await axios.delete(`${API}/events/${eventToDelete.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setEvents(events.filter(e => e.id !== eventToDelete.id));
       toast.success('Event deleted');
       setShowDeleteModal(false);
@@ -128,14 +133,15 @@ const Dashboard = () => {
             <Sparkles className="w-6 h-6 text-[#D4AF37]" />
             <span className="font-heading text-white text-lg">My Celebrations</span>
           </div>
-          <Button
-            onClick={() => navigate('/create')}
-            className="btn-gold"
-            data-testid="create-new-btn"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Create New
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => { logout(); navigate('/login'); }} variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <LogOut className="w-4 h-4" />
+            </Button>
+            <Button onClick={() => navigate('/create')} className="btn-gold" data-testid="create-new-btn">
+              <Plus className="w-5 h-5 mr-2" />
+              Create New
+            </Button>
+          </div>
         </div>
 
         {/* Events Grid */}
