@@ -70,12 +70,14 @@ class EventCreate(BaseModel):
     photos: List[PhotoItem] = []
     video_url: Optional[str] = None
     special_note: Optional[str] = None
-    voice_message_url: Optional[str] = None
     song_url: Optional[str] = None
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: List[TimelineItem] = []
     easter_egg_message: Optional[str] = None
+    lock_pin: Optional[str] = None
+    lock_hint: Optional[str] = None
+    flip_cards: List[str] = []
 
 class Event(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -89,12 +91,14 @@ class Event(BaseModel):
     photos: List[PhotoItem] = []
     video_url: Optional[str] = None
     special_note: Optional[str] = None
-    voice_message_url: Optional[str] = None
     song_url: Optional[str] = None
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: List[TimelineItem] = []
     easter_egg_message: Optional[str] = None
+    lock_pin: Optional[str] = None
+    lock_hint: Optional[str] = None
+    flip_cards: List[str] = []
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     view_count: int = 0
@@ -108,12 +112,14 @@ class EventUpdate(BaseModel):
     photos: Optional[List[PhotoItem]] = None
     video_url: Optional[str] = None
     special_note: Optional[str] = None
-    voice_message_url: Optional[str] = None
     song_url: Optional[str] = None
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: Optional[List[TimelineItem]] = None
     easter_egg_message: Optional[str] = None
+    lock_pin: Optional[str] = None
+    lock_hint: Optional[str] = None
+    flip_cards: Optional[List[str]] = None
 
 class FileUploadResponse(BaseModel):
     url: str
