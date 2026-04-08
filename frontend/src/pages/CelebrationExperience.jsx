@@ -367,17 +367,20 @@ const FlipCards = ({ cards, theme, onComplete }) => {
   return (
     <div className="grid grid-cols-2 gap-4">
       {cards.map((card, i) => (
-        <div key={i} className="h-28 cursor-pointer" style={{ perspective: '1000px' }} onClick={() => flip(i)}>
-          <motion.div animate={{ rotateY: flipped.includes(i) ? 180 : 0 }} transition={{ duration: 0.6 }}
-            style={{ transformStyle: 'preserve-3d', position: 'relative', width: '100%', height: '100%' }}>
-            <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}
-              className="rounded-xl flex items-center justify-center text-3xl"
-              style={{ backgroundColor: theme.colors.primary + '30', border: `1px solid ${theme.colors.primary}50` }}>
+        <div key={i} onClick={() => flip(i)} className="h-28 cursor-pointer" style={{ perspective: '1000px' }}>
+          <motion.div
+            animate={{ rotateY: flipped.includes(i) ? 180 : 0 }}
+            transition={{ duration: 0.6 }}
+            style={{ transformStyle: 'preserve-3d', position: 'relative', width: '100%', height: '100%' }}
+          >
+            {/* Front */}
+            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', position: 'absolute', inset: 0, backgroundColor: theme.colors.primary + '30', border: `1px solid ${theme.colors.primary}50`, borderRadius: '12px' }}
+              className="flex items-center justify-center text-3xl">
               ❓
             </div>
-            <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}
-              className="rounded-xl flex items-center justify-center p-3 text-center text-sm text-white"
-              style={{ backgroundColor: theme.colors.primary + '20', border: `1px solid ${theme.colors.primary}` }}>
+            {/* Back */}
+            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0, backgroundColor: theme.colors.primary + '20', border: `1px solid ${theme.colors.primary}`, borderRadius: '12px' }}
+              className="flex items-center justify-center p-3 text-center text-sm text-white">
               {card}
             </div>
           </motion.div>
