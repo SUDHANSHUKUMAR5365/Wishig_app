@@ -85,39 +85,6 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
   );
 };
 
-// Background floating balloons - shown throughout all phases (NOT in game)
-const FloatingBalloons = ({ theme }) => {
-  const colors = [theme.colors.primary, theme.colors.secondary, '#FF6B6B', '#4ECDC4', '#FFD700'];
-  const balloons = Array.from({ length: 8 }, (_, i) => ({
-    id: i,
-    x: 5 + (i * 12) % 88,
-    size: 25 + (i % 3) * 10,
-    color: colors[i % colors.length],
-    duration: 7 + (i % 4) * 2,
-    delay: i * 1.2,
-  }));
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
-      {balloons.map(b => (
-        <motion.div
-          key={b.id}
-          className="absolute"
-          style={{ left: `${b.x}%`, bottom: 0 }}
-          initial={{ y: '110vh' }}
-          animate={{ y: '-20vh' }}
-          transition={{ duration: b.duration, delay: b.delay, repeat: Infinity, repeatDelay: 1 }}
-        >
-          <svg width={b.size} height={b.size * 1.3} viewBox="0 0 50 65" opacity="0.4">
-            <ellipse cx="25" cy="25" rx="20" ry="25" fill={b.color} />
-            <path d="M25 50 Q27 55 25 60 Q23 55 25 50" stroke={b.color} strokeWidth="1.5" fill="none" />
-            <ellipse cx="18" cy="18" rx="5" ry="8" fill="white" opacity="0.25" />
-          </svg>
-        </motion.div>
-      ))}
-    </div>
-  );
-};
 const InteractiveCake = ({ theme, candlesBlown, onBlowComplete }) => {
   const [showSmoke, setShowSmoke] = useState(false);
 
@@ -416,8 +383,7 @@ const CelebrationExperience = () => {
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: theme.colors.background }}>
 
-      {/* Background floating balloons throughout all phases */}
-      {event && <FloatingBalloons theme={theme} />}
+
 
       {/* Phase: Voice Timer */}
       <AnimatePresence>
