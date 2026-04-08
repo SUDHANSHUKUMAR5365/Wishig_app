@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Volume2, VolumeX, X, Gift, Sparkles, Music, MessageSquare, Cake, Award } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, X, Gift, Sparkles, Music, MessageSquare, Cake, Award, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
@@ -10,6 +10,80 @@ import { getTheme } from '@/lib/themes';
 import confetti from 'canvas-confetti';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Lock Screen Component
+const LockScreen = ({ hint, correctPin, onUnlock }) => {
+  const [pin, setPin] = useState('');
+  const [shake, setShake] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+
+  const handleKey = (digit) => {
+    if (pin.length >= 4) return;
+    const newPin = pin + digit;
+    setPin(newPin);
+    if (newPin.length === 4) {
+      setTimeout(() => {
+        if (newPin === correctPin) {
+          onUnlock();
+        } else {
+          setShake(true);
+          setAttempts(a => a + 1);
+          setTimeout(() => { setShake(false); setPin(''); }, 600);
+        }
+      }, 200);
+    }
+  };
+
+  const handleDelete = () => setPin(p => p.slice(0, -1));
+
+  return (
+    <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50 px-6">
+      <motion.div
+        animate={shake ? { x: [-10, 10, -10, 10, 0] } : {}}
+        transition={{ duration: 0.4 }}
+        className="flex flex-col items-center w-full max-w-xs"
+      >
+        <Lock className="w-12 h-12 text-[#D4AF37] mb-4" />
+        <h2 className="font-heading text-2xl text-white mb-2">This is locked 🔒</h2>
+        {hint && (
+          <p className="text-[#94A3B8] text-center mb-6 text-sm">{hint}</p>
+        )}
+
+        {/* PIN dots */}
+        <div className="flex gap-4 mb-8">
+          {[0,1,2,3].map(i => (
+            <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
+              pin.length > i ? 'bg-[#D4AF37] border-[#D4AF37]' : 'border-white/30'
+            }`} />
+          ))}
+        </div>
+
+        {/* Keypad */}
+        <div className="grid grid-cols-3 gap-3 w-full">
+          {[1,2,3,4,5,6,7,8,9].map(n => (
+            <button key={n} onClick={() => handleKey(n.toString())}
+              className="h-14 rounded-xl bg-white/10 text-white text-xl font-bold hover:bg-white/20 active:scale-95 transition-all">
+              {n}
+            </button>
+          ))}
+          <div />
+          <button onClick={() => handleKey('0')}
+            className="h-14 rounded-xl bg-white/10 text-white text-xl font-bold hover:bg-white/20 active:scale-95 transition-all">
+            0
+          </button>
+          <button onClick={handleDelete}
+            className="h-14 rounded-xl bg-white/10 text-white text-xl font-bold hover:bg-white/20 active:scale-95 transition-all">
+            ⌫
+          </button>
+        </div>
+
+        {attempts > 0 && (
+          <p className="text-red-400 text-sm mt-4">Wrong PIN. Try again.</p>
+        )}
+      </motion.div>
+    </div>
+  );
+};
 
 // Voice Note Timer - plays voice then shows cake
 const VoiceTimer = ({ voiceUrl, onComplete }) => {
@@ -202,58 +276,177 @@ const BalloonPopGame = ({ theme, onComplete }) => {
   );
 };
 
-// Gift Box - shows uploaded photos
-const GiftBoxGame = ({ theme, photos, onComplete }) => {
-  const fallbackMessages = ['You are amazing! 🌟', 'Best wishes! 🎉', 'Keep shining! ✨', 'You rock! 🎸', 'Stay awesome! 💫', 'Happiness always! 🌈'];
-  const items = Array.from({ length: 6 }, (_, i) => ({
-    id: i,
-    photo: photos && photos[i] ? photos[i].url : null,
-    message: fallbackMessages[i],
-  }));
+// Polaroid Photo Gallery (replaces gift boxes)
+const PolaroidGallery = ({ photos, theme, onComplete }) => {
+  const [modalPhoto, setModalPhoto] = useState(null);
+  const [revealed, setRevealed] = useState([]);
 
-  const [boxes, setBoxes] = useState(items.map(it => ({ ...it, opened: false })));
-  const [openedCount, setOpenedCount] = useState(0);
-
-  const openBox = (id) => {
-    setBoxes(prev => prev.map(b => b.id === id ? { ...b, opened: true } : b));
-    const newCount = openedCount + 1;
-    setOpenedCount(newCount);
-    if (newCount >= 6) {
+  const reveal = (i) => {
+    if (revealed.includes(i)) { setModalPhoto(photos[i].url); return; }
+    const newRevealed = [...revealed, i];
+    setRevealed(newRevealed);
+    setModalPhoto(photos[i].url);
+    if (newRevealed.length === Math.min(photos.length, 6)) {
       confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 } });
       setTimeout(onComplete, 1500);
     }
   };
 
+  const rotations = [-3, 4, -2, 3, -4, 2];
+  const displayPhotos = photos.slice(0, 6);
+
   return (
-    <div className="grid grid-cols-3 gap-4 p-4">
-      {boxes.map(box => (
-        <motion.div
-          key={box.id}
-          className={`aspect-square rounded-xl cursor-pointer overflow-hidden ${!box.opened ? 'gift-shake' : ''}`}
-          style={{ backgroundColor: box.opened ? 'transparent' : theme.colors.primary + '30' }}
-          onClick={() => !box.opened && openBox(box.id)}
-          data-testid={`gift-box-${box.id}`}
-        >
-          {box.opened ? (
-            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-full h-full flex items-center justify-center">
-              {box.photo ? (
-                <img src={box.photo} alt="" className="w-full h-full object-cover rounded-xl" />
+    <>
+      <div className="grid grid-cols-2 gap-6 p-4">
+        {displayPhotos.map((photo, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.1 }}
+            onClick={() => reveal(i)}
+            className="cursor-pointer"
+            style={{ transform: `rotate(${rotations[i]}deg)` }}
+            whileHover={{ scale: 1.08, rotate: 0, zIndex: 10 }}
+          >
+            <div className="bg-white p-2 pb-8 shadow-xl">
+              {revealed.includes(i) ? (
+                <img src={photo.url} alt="" className="w-full aspect-square object-cover" />
               ) : (
-                <p className="text-white text-center text-sm p-2">{box.message}</p>
+                <div className="w-full aspect-square flex items-center justify-center"
+                  style={{ backgroundColor: theme.colors.primary + '20' }}>
+                  <span className="text-4xl">💝</span>
+                </div>
               )}
-            </motion.div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Gift className="w-12 h-12" style={{ color: theme.colors.primary }} />
+              <p className="text-center text-gray-400 text-xs mt-2">❤️</p>
             </div>
-          )}
-        </motion.div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Fullscreen Modal */}
+      <AnimatePresence>
+        {modalPhoto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+            onClick={() => setModalPhoto(null)}
+          >
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              src={modalPhoto}
+              alt=""
+              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl border-4 border-white"
+              onClick={e => e.stopPropagation()}
+            />
+            <button
+              className="absolute top-6 right-6 text-white text-4xl"
+              onClick={() => setModalPhoto(null)}
+            >×</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+
+// Flip Cards
+const FlipCards = ({ cards, theme, onComplete }) => {
+  const [flipped, setFlipped] = useState([]);
+  const flip = (i) => {
+    if (flipped.includes(i)) return;
+    const newFlipped = [...flipped, i];
+    setFlipped(newFlipped);
+    if (newFlipped.length === cards.length) setTimeout(onComplete, 1000);
+  };
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {cards.map((card, i) => (
+        <div key={i} className="h-28 cursor-pointer" style={{ perspective: '1000px' }} onClick={() => flip(i)}>
+          <motion.div animate={{ rotateY: flipped.includes(i) ? 180 : 0 }} transition={{ duration: 0.6 }}
+            style={{ transformStyle: 'preserve-3d', position: 'relative', width: '100%', height: '100%' }}>
+            <div style={{ backfaceVisibility: 'hidden', position: 'absolute', inset: 0 }}
+              className="rounded-xl flex items-center justify-center text-3xl"
+              style={{ backgroundColor: theme.colors.primary + '30', border: `1px solid ${theme.colors.primary}50` }}>
+              ❓
+            </div>
+            <div style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0 }}
+              className="rounded-xl flex items-center justify-center p-3 text-center text-sm text-white"
+              style={{ backgroundColor: theme.colors.primary + '20', border: `1px solid ${theme.colors.primary}` }}>
+              {card}
+            </div>
+          </motion.div>
+        </div>
       ))}
     </div>
   );
 };
 
-// Looping Music Player
+// Love Letter
+const LoveLetter = ({ note, theme }) => {
+  const [displayed, setDisplayed] = useState('');
+  useEffect(() => {
+    if (!note) return;
+    let i = 0;
+    const t = setInterval(() => { if (i <= note.length) { setDisplayed(note.slice(0, i)); i++; } else clearInterval(t); }, 25);
+    return () => clearInterval(t);
+  }, [note]);
+  if (!note) return null;
+  return (
+    <div className="relative" style={{ transform: 'rotate(-1deg)' }}>
+      <div className="bg-[#fffdf0] rounded-sm p-8 shadow-2xl" style={{ border: '1px solid rgba(0,0,0,0.1)' }}>
+        <div className="absolute inset-5 border border-black/10 pointer-events-none rounded-sm" />
+        <p className="font-heading text-2xl mb-4" style={{ color: theme.colors.primary, fontFamily: 'Dancing Script, cursive' }}>
+          Dear {'{'}name{'}'} 💝
+        </p>
+        <p className="leading-relaxed text-gray-700" style={{ fontFamily: 'Dancing Script, cursive', fontSize: '1.1rem' }}>
+          {displayed}<span className="animate-pulse">|</span>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// Canvas Hearts Background
+const HeartsCanvas = ({ color }) => {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const hearts = Array.from({ length: 20 }, () => ({
+      x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+      size: 8 + Math.random() * 12, speedY: 0.5 + Math.random() * 1,
+      opacity: 0.1 + Math.random() * 0.3,
+    }));
+    let raf;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hearts.forEach(h => {
+        h.y -= h.speedY;
+        if (h.y < -30) { h.y = canvas.height + 30; h.x = Math.random() * canvas.width; }
+        ctx.save(); ctx.translate(h.x, h.y); ctx.scale(h.size / 30, h.size / 30);
+        ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(-15, -15, -25, 10, 0, 25);
+        ctx.bezierCurveTo(25, 10, 15, -15, 0, 0);
+        ctx.fillStyle = color + Math.floor(h.opacity * 255).toString(16).padStart(2, '0');
+        ctx.fill(); ctx.restore();
+      });
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [color]);
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
+};
+
 const MusicPlayer = ({ songUrl }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -327,9 +520,11 @@ const CelebrationExperience = () => {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Flow phases: voiceTimer → cake → scroll (game → gifts → message)
+  // Flow phases: lock → voiceTimer → cake → scroll (game → gifts → message)
   const alreadyBlown = sessionStorage.getItem(`candles_${eventId}`) === 'true';
-  const [phase, setPhase] = useState(alreadyBlown ? 'scroll' : 'voiceTimer');
+  const alreadyUnlocked = sessionStorage.getItem(`unlocked_${eventId}`) === 'true';
+  const [unlocked, setUnlocked] = useState(alreadyUnlocked);
+  const [phase, setPhase] = useState(alreadyBlown ? 'scroll' : 'envelope');
   const [candlesBlown, setCandlesBlown] = useState(alreadyBlown);
   const [gameComplete, setGameComplete] = useState(false);
   const [giftsComplete, setGiftsComplete] = useState(false);
@@ -383,7 +578,43 @@ const CelebrationExperience = () => {
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: theme.colors.background }}>
 
+      {/* Lock Screen */}
+      {event?.lock_pin && !unlocked && (
+        <LockScreen
+          hint={event.lock_hint}
+          correctPin={event.lock_pin}
+          onUnlock={() => {
+            sessionStorage.setItem(`unlocked_${eventId}`, 'true');
+            setUnlocked(true);
+          }}
+        />
+      )}
 
+
+
+      {/* Phase: Envelope */}
+      <AnimatePresence>
+        {phase === 'envelope' && (
+          <motion.div key="envelope" exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed inset-0 flex flex-col items-center justify-center z-50 px-6"
+            style={{ backgroundColor: theme.colors.background }}>
+            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
+              <motion.div
+                className="text-8xl mb-8 cursor-pointer select-none"
+                animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}
+                onClick={() => setPhase('voiceTimer')}
+              >
+                💌
+              </motion.div>
+              <h2 className="font-heading text-2xl text-white mb-3">You have a special message</h2>
+              <p className="text-white/50 text-sm mb-8">Tap the envelope to open</p>
+              <Button onClick={() => setPhase('voiceTimer')} className="btn-gold px-8 py-4 rounded-full text-lg">
+                Open ✨
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Phase: Voice Timer */}
       <AnimatePresence>
@@ -445,9 +676,10 @@ const CelebrationExperience = () => {
         </motion.div>
       )}
 
-      {/* Phase: Scroll page */}
       {phase === 'scroll' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen" style={{ backgroundColor: theme.colors.background }}>
+
+          <HeartsCanvas color={theme.colors.primary} />
 
           {/* Music player fixed top */}
           {event?.song_url && (
@@ -456,20 +688,28 @@ const CelebrationExperience = () => {
             </div>
           )}
 
-          <div className={`max-w-2xl mx-auto px-4 pb-24 space-y-12 ${event?.song_url ? 'pt-20' : 'pt-8'}`}>
+          <div className={`max-w-2xl mx-auto px-4 pb-24 space-y-12 relative z-10 ${event?.song_url ? 'pt-20' : 'pt-8'}`}>
 
             {/* Greeting */}
             <div className="text-center pt-4" onClick={handleTitleTap}>
               <h1 className="font-heading text-4xl mb-2" style={{ color: theme.colors.primary }}>{getGreeting()}</h1>
-              <h2 className="font-heading text-3xl" style={{ color: theme.colors.text }}>{event?.person_name}!</h2>
+              <h2 className="font-heading text-3xl" style={{ color: theme.colors.text || '#fff' }}>{event?.person_name}!</h2>
               {event?.easter_egg_message && (
-                <p className="mt-3 text-xs" style={{ color: theme.colors.text + '60' }}>💡 Tap the name 3 times for a secret message</p>
+                <p className="mt-3 text-xs opacity-40" style={{ color: theme.colors.text || '#fff' }}>💡 Tap the name 3 times for a secret message</p>
               )}
             </div>
 
+            {/* Flip Cards */}
+            {event?.flip_cards?.length > 0 && (
+              <div>
+                <h3 className="font-heading text-xl mb-4 text-center" style={{ color: theme.colors.primary }}>Tap to reveal 💝</h3>
+                <FlipCards cards={event.flip_cards} theme={theme} onComplete={() => {}} />
+              </div>
+            )}
+
             {/* Game Section */}
             <div>
-              <h3 className="font-heading text-xl mb-4 text-center" style={{ color: theme.colors.text }}>🎈 Pop the Balloons!</h3>
+              <h3 className="font-heading text-xl mb-4 text-center" style={{ color: theme.colors.text || '#fff' }}>🎈 Pop the Balloons!</h3>
               <BalloonPopGame theme={theme} onComplete={() => setGameComplete(true)} />
             </div>
 
@@ -481,35 +721,26 @@ const CelebrationExperience = () => {
                     <Award className="w-8 h-8 text-[#D4AF37] mx-auto mb-2" />
                     <p className="text-[#D4AF37] font-heading text-lg">Reward Unlocked! Open your gifts 🎁</p>
                   </div>
-                  <GiftBoxGame
-                    theme={theme}
-                    photos={event?.photos || []}
-                    onComplete={() => setGiftsComplete(true)}
-                  />
+                  <PolaroidGallery theme={theme} photos={event?.photos || []} onComplete={() => setGiftsComplete(true)} />
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Message - shown after gifts opened */}
+            {/* Love Letter - shown after gifts */}
             <AnimatePresence>
               {giftsComplete && event?.special_note && (
                 <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
-                  <SpecialNote note={event.special_note} theme={theme} />
+                  <LoveLetter note={event.special_note} theme={theme} />
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Video - shown after gifts opened */}
+            {/* Video */}
             <AnimatePresence>
               {giftsComplete && event?.video_url && (
                 <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
                   <div className="glass rounded-xl overflow-hidden">
-                    <video
-                      src={event.video_url}
-                      controls
-                      className="w-full rounded-xl"
-                      style={{ maxHeight: '400px' }}
-                    />
+                    <video src={event.video_url} controls className="w-full rounded-xl" style={{ maxHeight: '400px' }} />
                   </div>
                 </motion.div>
               )}

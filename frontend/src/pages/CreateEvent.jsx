@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, ChevronRight, User, Calendar, Image, Video, 
   MessageSquare, Mic, Music, Palette, Check, Loader2, Upload,
-  X, Sparkles, QrCode, Copy, Download, ExternalLink
+  X, Sparkles, QrCode, Copy, Download, ExternalLink, Heart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,7 @@ const steps = [
   { id: 3, title: 'Photos', icon: Image },
   { id: 4, title: 'Video', icon: Video },
   { id: 5, title: 'Message', icon: MessageSquare },
-  { id: 6, title: 'Voice', icon: Mic },
+  { id: 6, title: 'Flip Cards', icon: Heart },
   { id: 7, title: 'Music', icon: Music },
   { id: 8, title: 'Theme', icon: Palette },
 ];
@@ -64,7 +64,16 @@ const CreateEvent = () => {
     song_url: '',
     easter_egg_message: '',
     timeline: [],
+    flip_cards: ['', '', '', '', '', ''],
+    lock_pin: '',
+    lock_hint: '',
   });
+
+  const generatePin = () => {
+    const pin = Math.floor(1000 + Math.random() * 9000).toString();
+    setFormData(prev => ({ ...prev, lock_pin: pin }));
+    toast.success(`PIN generated: ${pin} — Save this!`);
+  };
 
   // Upload file to backend storage
   const uploadFile = async (file, folder) => {
@@ -181,6 +190,9 @@ const CreateEvent = () => {
       const eventData = {
         ...formData,
         event_date: formData.event_date.toISOString(),
+        lock_pin: formData.lock_pin || null,
+        lock_hint: formData.lock_hint || null,
+        flip_cards: formData.flip_cards.filter(c => c.trim() !== ''),
       };
 
       const response = await axios.post(`${API}/events`, eventData);
@@ -384,7 +396,7 @@ const CreateEvent = () => {
                 className="bg-white/5 border-white/10 text-white min-h-[150px] resize-none"
               />
             </div>
-            
+
             <div>
               <Label className="text-white mb-3 block">Easter Egg Message (Secret surprise!)</Label>
               <Input
@@ -395,42 +407,64 @@ const CreateEvent = () => {
                 className="bg-white/5 border-white/10 text-white h-12"
               />
             </div>
+
+            {/* Lock Screen */}
+            <div className="border border-white/10 rounded-xl p-4 space-y-4">
+              <Label className="text-white block">🔒 Lock Screen (Optional)</Label>
+              <p className="text-[#94A3B8] text-xs">Protect the celebration with a 4-digit PIN. Only you know it.</p>
+              
+              <div className="flex gap-2">
+                <Input
+                  value={formData.lock_pin}
+                  onChange={(e) => setFormData(prev => ({ ...prev, lock_pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                  placeholder="4-digit PIN"
+                  maxLength={4}
+                  className="bg-white/5 border-white/10 text-white h-12 text-center text-xl tracking-widest"
+                />
+                <Button onClick={generatePin} variant="outline" className="border-white/10 text-white hover:bg-white/5 shrink-0">
+                  Generate
+                </Button>
+              </div>
+
+              {formData.lock_pin && (
+                <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-3">
+                  <p className="text-[#D4AF37] text-sm font-bold">Your PIN: {formData.lock_pin}</p>
+                  <p className="text-[#94A3B8] text-xs mt-1">Save this PIN — you'll need to share it verbally with the person.</p>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-white mb-2 block text-sm">Hint shown on lock screen</Label>
+                <Input
+                  value={formData.lock_hint}
+                  onChange={(e) => setFormData(prev => ({ ...prev, lock_hint: e.target.value }))}
+                  placeholder="e.g., Ask your brother, Ask Papa..."
+                  className="bg-white/5 border-white/10 text-white h-12"
+                />
+              </div>
+            </div>
           </div>
         );
 
       case 6:
         return (
-          <div className="space-y-6">
-            <div>
-              <Label className="text-white mb-3 block">Voice Message (Optional)</Label>
-              <div
-                onClick={() => voiceInputRef.current?.click()}
-                className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-[#D4AF37]/50 transition-colors"
-              >
-                {uploadProgress.voice === 'uploading' ? (
-                  <Loader2 className="w-12 h-12 text-[#D4AF37] mx-auto animate-spin" />
-                ) : formData.voice_message_url ? (
-                  <div className="text-[#D4AF37]">
-                    <Check className="w-12 h-12 mx-auto mb-2" />
-                    <p>Voice message uploaded!</p>
-                  </div>
-                ) : (
-                  <>
-                    <Mic className="w-12 h-12 text-[#94A3B8] mx-auto mb-3" />
-                    <p className="text-white mb-1">Click to upload voice message</p>
-                    <p className="text-[#94A3B8] text-sm">MP3, WAV up to 20MB</p>
-                  </>
-                )}
+          <div className="space-y-4">
+            <p className="text-[#94A3B8] text-sm">Write 6 reasons — receiver flips each card one by one 💝</p>
+            {formData.flip_cards.map((card, i) => (
+              <div key={i}>
+                <Label className="text-white mb-2 block text-sm">Card {i + 1}</Label>
+                <Input
+                  value={card}
+                  onChange={(e) => {
+                    const updated = [...formData.flip_cards];
+                    updated[i] = e.target.value;
+                    setFormData(prev => ({ ...prev, flip_cards: updated }));
+                  }}
+                  placeholder={`e.g., You make every day special ✨`}
+                  className="bg-white/5 border-white/10 text-white h-12"
+                />
               </div>
-              <input
-                ref={voiceInputRef}
-                type="file"
-                accept="audio/*"
-                onChange={handleVoiceUpload}
-                className="hidden"
-                data-testid="voice-upload-input"
-              />
-            </div>
+            ))}
           </div>
         );
 
