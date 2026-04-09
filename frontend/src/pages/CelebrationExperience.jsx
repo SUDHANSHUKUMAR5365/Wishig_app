@@ -279,24 +279,44 @@ const BalloonPopGame = ({ theme, onComplete }) => {
   );
 };
 
-// Polaroid Photo Gallery (replaces gift boxes)
+// Polaroid Photo Gallery
 const PolaroidGallery = ({ photos, theme, onComplete }) => {
   const [modalPhoto, setModalPhoto] = useState(null);
+  const [modalIndex, setModalIndex] = useState(null);
   const [revealed, setRevealed] = useState([]);
 
+  // If no photos, complete immediately
+  useEffect(() => {
+    if (photos.length === 0) onComplete();
+  }, []);
+
   const reveal = (i) => {
-    if (revealed.includes(i)) { setModalPhoto(photos[i].url); return; }
-    const newRevealed = [...revealed, i];
+    const newRevealed = revealed.includes(i) ? revealed : [...revealed, i];
     setRevealed(newRevealed);
     setModalPhoto(photos[i].url);
-    if (newRevealed.length === Math.min(photos.length, 6)) {
+    setModalIndex(i);
+    if (!revealed.includes(i) && newRevealed.length === Math.min(photos.length, 6)) {
       confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 } });
       setTimeout(onComplete, 1500);
     }
   };
 
+  const showPrev = () => {
+    const newIdx = (modalIndex - 1 + Math.min(photos.length, 6)) % Math.min(photos.length, 6);
+    setModalIndex(newIdx);
+    setModalPhoto(photos[newIdx].url);
+  };
+
+  const showNext = () => {
+    const newIdx = (modalIndex + 1) % Math.min(photos.length, 6);
+    setModalIndex(newIdx);
+    setModalPhoto(photos[newIdx].url);
+  };
+
   const rotations = [-3, 4, -2, 3, -4, 2];
   const displayPhotos = photos.slice(0, 6);
+
+  if (photos.length === 0) return null;
 
   return (
     <>
@@ -334,20 +354,43 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex flex-col items-center justify-center"
+            style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}
           >
-            <motion.img
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              src={modalPhoto}
-              alt=""
-              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl border-4 border-white"
-            />
-            <button
-              className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white text-2xl transition-all"
-              onClick={() => setModalPhoto(null)}
-            >×</button>
+            {/* Close button - always visible at top */}
+            <div className="w-full flex items-center justify-between px-4 py-3 shrink-0">
+              <button
+                onClick={() => setModalPhoto(null)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-white font-medium"
+                style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }}
+              >
+                <X className="w-4 h-4" /> Back
+              </button>
+              {displayPhotos.length > 1 && (
+                <span className="text-white/60 text-sm">{modalIndex + 1} / {displayPhotos.length}</span>
+              )}
+            </div>
+
+            {/* Image */}
+            <div className="flex-1 flex items-center justify-center w-full px-4 relative">
+              {displayPhotos.length > 1 && (
+                <button onClick={showPrev} className="absolute left-2 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-xl">‹</button>
+              )}
+              <motion.img
+                key={modalPhoto}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                src={modalPhoto}
+                alt=""
+                className="max-w-full max-h-[75vh] rounded-lg shadow-2xl object-contain"
+              />
+              {displayPhotos.length > 1 && (
+                <button onClick={showNext} className="absolute right-2 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-xl">›</button>
+              )}
+            </div>
+
+            {/* Bottom safe area */}
+            <div className="h-6 shrink-0" />
           </motion.div>
         )}
       </AnimatePresence>
