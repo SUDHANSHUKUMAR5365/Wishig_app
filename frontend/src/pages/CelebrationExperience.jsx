@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, Volume2, VolumeX, X, Gift, Sparkles, Music, MessageSquare, Cake, Award, Lock } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, X, Gift, Sparkles, Music, MessageSquare, Cake, Award, Lock, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { getTheme } from '@/lib/themes';
+import { useAuth } from '@/lib/auth';
 import confetti from 'canvas-confetti';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -332,7 +333,6 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-            onClick={() => setModalPhoto(null)}
           >
             <motion.img
               initial={{ scale: 0.8 }}
@@ -341,10 +341,9 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
               src={modalPhoto}
               alt=""
               className="max-w-full max-h-[85vh] rounded-lg shadow-2xl border-4 border-white"
-              onClick={e => e.stopPropagation()}
             />
             <button
-              className="absolute top-6 right-6 text-white text-4xl"
+              className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/40 rounded-full flex items-center justify-center text-white text-2xl transition-all"
               onClick={() => setModalPhoto(null)}
             >×</button>
           </motion.div>
@@ -520,6 +519,7 @@ const SpecialNote = ({ note, theme }) => {
 const CelebrationExperience = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const { token, user } = useAuth();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -527,6 +527,7 @@ const CelebrationExperience = () => {
   const alreadyBlown = sessionStorage.getItem(`candles_${eventId}`) === 'true';
   const alreadyUnlocked = sessionStorage.getItem(`unlocked_${eventId}`) === 'true';
   const [unlocked, setUnlocked] = useState(alreadyUnlocked);
+  const [songEnabled, setSongEnabled] = useState(alreadyUnlocked);
   const [phase, setPhase] = useState(alreadyBlown ? 'scroll' : 'envelope');
   const [candlesBlown, setCandlesBlown] = useState(alreadyBlown);
   const [gameComplete, setGameComplete] = useState(false);
@@ -581,6 +582,19 @@ const CelebrationExperience = () => {
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: theme.colors.background }}>
 
+      {/* Auth bar - top right */}
+      <div className="fixed top-3 right-3 z-50">
+        {token ? (
+          <Button size="sm" onClick={() => navigate('/dashboard')} className="bg-black/40 hover:bg-black/60 text-white backdrop-blur border border-white/10">
+            <Sparkles className="w-3 h-3 mr-1 text-[#D4AF37]" /> {user?.name?.split(' ')[0]}
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => navigate('/login')} className="bg-black/40 hover:bg-black/60 text-white backdrop-blur border border-white/10">
+            <LogIn className="w-3 h-3 mr-1" /> Sign In
+          </Button>
+        )}
+      </div>
+
       {/* Lock Screen */}
       {event?.lock_pin && !unlocked && (
         <LockScreen
@@ -589,6 +603,7 @@ const CelebrationExperience = () => {
           onUnlock={() => {
             sessionStorage.setItem(`unlocked_${eventId}`, 'true');
             setUnlocked(true);
+            setSongEnabled(true);
           }}
         />
       )}
@@ -685,7 +700,7 @@ const CelebrationExperience = () => {
           <HeartsCanvas color={theme.colors.primary} />
 
           {/* Music player fixed top */}
-          {event?.song_url && (
+          {event?.song_url && songEnabled && (
             <div className="fixed top-0 left-0 right-0 z-40 p-3 backdrop-blur" style={{ backgroundColor: theme.colors.background + 'CC' }}>
               <MusicPlayer songUrl={event.song_url} />
             </div>

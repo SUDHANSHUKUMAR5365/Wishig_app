@@ -9,7 +9,14 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
+
+def safe_event_id(event_id: str) -> str:
+    """Validate event_id is a UUID to prevent NoSQL injection."""
+    if not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', event_id, re.IGNORECASE):
+        raise HTTPException(status_code=400, detail="Invalid event ID")
+    return event_id
 import cloudinary
 import cloudinary.uploader
 from jose import JWTError, jwt
@@ -217,7 +224,8 @@ async def login(body: LoginRequest):
 @api_router.post("/auth/google")
 async def google_auth(body: GoogleAuthRequest):
     try:
-        resp = http_requests.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={body.token}", timeout=10)
+        GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+        resp = http_requests.get(GOOGLE_TOKEN_INFO_URL, params={"id_token": body.token}, timeout=10)
         info = resp.json()
         if "error" in info:
             raise HTTPException(status_code=401, detail="Invalid Google token")
@@ -284,6 +292,7 @@ async def get_events(current_user=Depends(get_current_user)):
 
 @api_router.get("/events/{event_id}", response_model=Event)
 async def get_event(event_id: str):
+    event_id = safe_event_id(event_id)
     event = await db.events.find_one({"id": event_id}, {"_id": 0})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -296,6 +305,7 @@ async def get_event(event_id: str):
 
 @api_router.put("/events/{event_id}", response_model=Event)
 async def update_event(event_id: str, input: EventUpdate, current_user=Depends(get_current_user)):
+    event_id = safe_event_id(event_id)
     query = {"id": event_id} if current_user["role"] == "admin" else {"id": event_id, "user_id": current_user["id"]}
     existing = await db.events.find_one(query, {"_id": 0})
     if not existing:
@@ -312,11 +322,37 @@ async def update_event(event_id: str, input: EventUpdate, current_user=Depends(g
 
 @api_router.delete("/events/{event_id}")
 async def delete_event(event_id: str, current_user=Depends(get_current_user)):
+    event_id = safe_event_id(event_id)
     query = {"id": event_id} if current_user["role"] == "admin" else {"id": event_id, "user_id": current_user["id"]}
     result = await db.events.delete_one(query)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Event not found")
     return {"message": "Event deleted successfully"}
+
+# Admin delete user
+@api_router.delete("/admin/users/{user_id}")
+async def delete_user(user_id: str, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Also delete their events
+    await db.events.delete_many({"user_id": user_id})
+    return {"message": "User and their events deleted"}
+
+# Admin users
+@api_router.get("/admin/users")
+async def admin_users(current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1, "email": 1}).to_list(1000)
+    # Attach each user's events (with lock_pin)
+    result = []
+    for u in users:
+        events = await db.events.find({"user_id": u["id"]}, {"_id": 0, "id": 1, "person_name": 1, "lock_pin": 1}).to_list(100)
+        result.append({"id": u["id"], "name": u["name"], "email": u["email"], "events": events})
+    return result
 
 # Admin stats
 @api_router.get("/admin/stats")

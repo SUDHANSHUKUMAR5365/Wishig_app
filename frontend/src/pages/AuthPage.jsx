@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Sparkles, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,11 +14,16 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [mode, setMode] = useState('login');
+  const location = useLocation();
+  const { login, token, isAdmin } = useAuth();
+  const [mode, setMode] = useState(() => new URLSearchParams(location.search).get('mode') === 'register' ? 'register' : 'login');
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
+
+  useEffect(() => {
+    if (token) navigate(isAdmin ? '/admin' : '/dashboard', { replace: true });
+  }, [token, isAdmin, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,6 +62,9 @@ const AuthPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className="glass rounded-2xl p-8 w-full max-w-sm"
       >
+        <button onClick={() => navigate('/')} className="flex items-center gap-1 text-[#94A3B8] hover:text-white text-sm mb-6">
+          <ArrowLeft className="w-4 h-4" /> Back to Home
+        </button>
         <div className="flex items-center justify-center gap-2 mb-8">
           <Sparkles className="w-8 h-8 text-[#D4AF37]" />
           <span className="font-heading text-xl text-white">Celebration QR</span>

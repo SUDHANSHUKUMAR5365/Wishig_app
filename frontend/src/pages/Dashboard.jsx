@@ -292,6 +292,16 @@ const Dashboard = () => {
                 <p className="text-white font-medium mb-4">
                   {selectedEvent.person_name}'s Celebration
                 </p>
+
+                {selectedEvent.lock_pin && (
+                  <div className="w-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-3 mb-4 text-center">
+                    <p className="text-[#94A3B8] text-xs mb-1">🔒 Celebration PIN</p>
+                    <p className="text-[#D4AF37] text-2xl font-bold tracking-widest">{selectedEvent.lock_pin}</p>
+                    {selectedEvent.lock_hint && (
+                      <p className="text-[#94A3B8] text-xs mt-1">Hint: {selectedEvent.lock_hint}</p>
+                    )}
+                  </div>
+                )}
                 
                 <div className="flex gap-2 w-full">
                   <Button

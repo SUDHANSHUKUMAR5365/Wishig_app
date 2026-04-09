@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Users, Eye, Gift, Trash2, LogOut, ExternalLink } from 'lucide-react';
+import { Sparkles, Users, Eye, Gift, Trash2, LogOut, ExternalLink, Lock, ChevronDown, ChevronUp, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -15,6 +15,8 @@ const AdminPage = () => {
   const { token, logout, isAdmin } = useAuth();
   const [stats, setStats] = useState(null);
   const [events, setEvents] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [expandedUser, setExpandedUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,13 +24,24 @@ const AdminPage = () => {
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       axios.get(`${API}/admin/stats`, { headers }),
-      axios.get(`${API}/events`, { headers })
-    ]).then(([s, e]) => {
+      axios.get(`${API}/events`, { headers }),
+      axios.get(`${API}/admin/users`, { headers }),
+    ]).then(([s, e, u]) => {
       setStats(s.data);
       setEvents(e.data);
+      setUsers(u.data);
     }).catch(() => toast.error('Failed to load data'))
       .finally(() => setLoading(false));
   }, [token, isAdmin, navigate]);
+
+  const deleteUser = async (userId) => {
+    if (!window.confirm('Delete this user and ALL their celebrations?')) return;
+    try {
+      await axios.delete(`${API}/admin/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      toast.success('User deleted');
+    } catch { toast.error('Failed to delete user'); }
+  };
 
   const deleteEvent = async (id) => {
     try {
@@ -76,6 +89,57 @@ const AdminPage = () => {
             ))}
           </div>
         )}
+
+        {/* Users Table */}
+        <div className="glass rounded-2xl overflow-hidden mb-8">
+          <div className="p-4 border-b border-white/10">
+            <h3 className="font-heading text-white text-lg">All Users</h3>
+          </div>
+          <div className="divide-y divide-white/5">
+            {users.length === 0 ? (
+              <p className="text-[#94A3B8] text-center py-8">No users yet</p>
+            ) : users.map((user, i) => (
+              <div key={i}>
+                <div
+                  className="flex items-center justify-between p-4 hover:bg-white/5 cursor-pointer"
+                  onClick={() => setExpandedUser(expandedUser === i ? null : i)}
+                >
+                  <div>
+                    <p className="text-white font-medium">{user.name}</p>
+                    <p className="text-[#94A3B8] text-sm">{user.email}</p>
+                    <p className="text-[#94A3B8] text-xs mt-1">{user.events.length} celebration(s)</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={(e) => { e.stopPropagation(); deleteUser(user.id); }}
+                      className="bg-red-500/20 hover:bg-red-500/30 text-red-400">
+                      <UserX className="w-4 h-4" />
+                    </Button>
+                    {user.events.length > 0 && (
+                      expandedUser === i
+                        ? <ChevronUp className="w-4 h-4 text-[#94A3B8]" />
+                        : <ChevronDown className="w-4 h-4 text-[#94A3B8]" />
+                    )}
+                  </div>
+                </div>
+                {expandedUser === i && user.events.length > 0 && (
+                  <div className="bg-white/5 px-4 pb-4 space-y-2">
+                    {user.events.map((ev, j) => (
+                      <div key={j} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                        <span className="text-white text-sm">{ev.person_name}</span>
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-3 h-3 text-[#94A3B8]" />
+                          <span className="text-[#D4AF37] font-mono text-sm tracking-widest">
+                            {ev.lock_pin || <span className="text-[#94A3B8] text-xs">No PIN</span>}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* All Events */}
         <div className="glass rounded-2xl overflow-hidden">

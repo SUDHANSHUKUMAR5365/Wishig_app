@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Gift, Heart, Camera, QrCode, Cake, Music, PartyPopper } from 'lucide-react';
+import { Sparkles, Gift, Heart, Camera, QrCode, Cake, Music, PartyPopper, LogIn, UserPlus, LayoutDashboard, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/lib/auth';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const { user, token, logout, isAdmin } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
 
   const features = [
@@ -19,6 +21,35 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-[#0A0F1F] overflow-hidden relative">
+      {/* Navbar */}
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 backdrop-blur-md" style={{ backgroundColor: 'rgba(10,15,31,0.85)' }}>
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-6 h-6 text-[#D4AF37]" />
+          <span className="font-heading text-white text-lg">Celebration QR</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {token ? (
+            <>
+              <span className="text-[#94A3B8] text-sm hidden sm:block">Hi, {user?.name?.split(' ')[0]}</span>
+              <Button size="sm" onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')} className="bg-white/10 hover:bg-white/20 text-white">
+                <LayoutDashboard className="w-4 h-4 mr-1" /> Dashboard
+              </Button>
+              <Button size="sm" onClick={() => { logout(); }} variant="outline" className="border-white/10 text-white hover:bg-white/5">
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button size="sm" onClick={() => navigate('/login')} variant="outline" className="border-white/10 text-white hover:bg-white/5">
+                <LogIn className="w-4 h-4 mr-1" /> Sign In
+              </Button>
+              <Button size="sm" onClick={() => navigate('/login?mode=register')} className="btn-gold">
+                <UserPlus className="w-4 h-4 mr-1" /> Sign Up
+              </Button>
+            </>
+          )}
+        </div>
+      </nav>
       {/* Animated background particles */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(30)].map((_, i) => (
@@ -44,7 +75,7 @@ const LandingPage = () => {
       </div>
 
       {/* Hero Section */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12 pt-24">
         {/* Logo/Brand */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}

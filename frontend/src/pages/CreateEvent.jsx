@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -78,18 +78,18 @@ const CreateEvent = () => {
     toast.success(`PIN generated: ${pin} — Save this!`);
   };
 
-  // Upload file to backend storage
-  const uploadFile = async (file, folder) => {
+  const ALLOWED_FOLDERS = ['photos', 'videos', 'voice', 'songs'];
+
+  const uploadFile = useCallback(async (file, folder) => {
+    if (!ALLOWED_FOLDERS.includes(folder)) throw new Error('Invalid upload folder');
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
-    
-    const response = await axios.post(`${API}/upload?folder=${folder}`, formDataUpload, {
+    const response = await axios.post(`${API}/upload`, formDataUpload, {
+      params: { folder },
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-    
-    // Return full URL - Cloudinary returns direct URL
     return response.data.url;
-  };
+  }, []);
 
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -246,7 +246,7 @@ const CreateEvent = () => {
                   <button
                     key={type.id}
                     data-testid={`occasion-${type.id}`}
-                    onClick={() => setFormData(prev => ({ ...prev, occasion_type: type.id }))}
+                    onClick={useCallback(() => setFormData(prev => ({ ...prev, occasion_type: type.id })), [type.id])}
                     className={`p-4 rounded-xl text-center transition-all duration-300 ${
                       formData.occasion_type === type.id
                         ? 'bg-[#D4AF37] text-[#0A0F1F]'
@@ -295,7 +295,7 @@ const CreateEvent = () => {
                   <CalendarComponent
                     mode="single"
                     selected={formData.event_date}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, event_date: date || new Date() }))}
+                    onSelect={useCallback((date) => setFormData(prev => ({ ...prev, event_date: date || new Date() })), [])}
                     className="text-white"
                   />
                 </PopoverContent>
@@ -525,7 +525,7 @@ const CreateEvent = () => {
                       <button
                         key={theme.id}
                         data-testid={`theme-${theme.id}`}
-                        onClick={() => setFormData(prev => ({ ...prev, theme: theme.id }))}
+                        onClick={useCallback(() => setFormData(prev => ({ ...prev, theme: theme.id })), [theme.id])}
                         className={`relative rounded-xl overflow-hidden aspect-video transition-all duration-300 ${
                           formData.theme === theme.id
                             ? 'ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-[#0A0F1F]'
