@@ -588,7 +588,11 @@ const CelebrationExperience = () => {
 
   useEffect(() => {
     axios.get(`${API}/events/${eventId}`)
-      .then(r => setEvent(r.data))
+      .then(r => {
+        setEvent(r.data);
+        // Enable song immediately if no PIN (or already unlocked)
+        if (!r.data.lock_pin || alreadyUnlocked) setSongEnabled(true);
+      })
       .catch(() => { toast.error('Event not found'); navigate('/'); })
       .finally(() => setLoading(false));
   }, [eventId, navigate]);
@@ -629,6 +633,13 @@ const CelebrationExperience = () => {
 
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: theme.colors.background }}>
+
+      {/* Music - starts right after PIN unlock, persists through all phases */}
+      {event?.song_url && songEnabled && (
+        <div className="fixed top-0 left-0 right-0 z-40 p-3 backdrop-blur" style={{ backgroundColor: theme.colors.background + 'CC' }}>
+          <MusicPlayer songUrl={event.song_url} theme={theme} />
+        </div>
+      )}
 
       {/* Auth bar - top right */}
       <div className="fixed top-3 right-3 z-50">
@@ -749,14 +760,9 @@ const CelebrationExperience = () => {
 
           <HeartsCanvas color={theme.colors.primary} />
 
-          {/* Music player fixed top */}
-          {event?.song_url && songEnabled && (
-            <div className="fixed top-0 left-0 right-0 z-40 p-3 backdrop-blur" style={{ backgroundColor: theme.colors.background + 'CC' }}>
-              <MusicPlayer songUrl={event.song_url} theme={theme} />
-            </div>
-          )}
+          {/* Music player moved to top-level, removed from here */}
 
-          <div className={`max-w-2xl mx-auto px-4 pb-24 space-y-12 relative z-10 ${event?.song_url ? 'pt-20' : 'pt-8'}`}>
+          <div className={`max-w-2xl mx-auto px-4 pb-24 space-y-12 relative z-10 ${event?.song_url && songEnabled ? 'pt-20' : 'pt-8'}`}>
 
             {/* Greeting */}
             <div className="text-center pt-4" onClick={handleTitleTap}>
