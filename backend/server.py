@@ -350,7 +350,7 @@ async def admin_users(current_user=Depends(get_current_user)):
     # Attach each user's events (with lock_pin)
     result = []
     for u in users:
-        events = await db.events.find({"user_id": u["id"]}, {"_id": 0, "id": 1, "person_name": 1, "lock_pin": 1}).to_list(100)
+        events = await db.events.find({"user_id": u["id"]}, {"_id": 0, "id": 1, "person_name": 1, "occasion_type": 1, "lock_pin": 1, "view_count": 1}).to_list(100)
         result.append({"id": u["id"], "name": u["name"], "email": u["email"], "events": events})
     return result
 

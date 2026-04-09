@@ -125,12 +125,28 @@ const AdminPage = () => {
                   <div className="bg-white/5 px-4 pb-4 space-y-2">
                     {user.events.map((ev, j) => (
                       <div key={j} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
-                        <span className="text-white text-sm">{ev.person_name}</span>
+                        <div>
+                          <p className="text-white text-sm font-medium">{ev.person_name}</p>
+                          <p className="text-[#94A3B8] text-xs">{ev.occasion_type} · {ev.view_count || 0} views</p>
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Lock className="w-3 h-3 text-[#94A3B8]" />
-                          <span className="text-[#D4AF37] font-mono text-sm tracking-widest">
-                            {ev.lock_pin || <span className="text-[#94A3B8] text-xs">No PIN</span>}
-                          </span>
+                          {ev.lock_pin && (
+                            <div className="flex items-center gap-1">
+                              <Lock className="w-3 h-3 text-[#94A3B8]" />
+                              <span className="text-[#D4AF37] font-mono text-xs tracking-widest">{ev.lock_pin}</span>
+                            </div>
+                          )}
+                          <Button size="sm" onClick={() => navigate(`/celebrate/${ev.id}`)}
+                            className="bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#D4AF37] h-7 px-2">
+                            <ExternalLink className="w-3 h-3 mr-1" /> Open
+                          </Button>
+                          <Button size="sm" onClick={() => {
+                            deleteEvent(ev.id);
+                            setUsers(prev => prev.map((u, ui) => ui === i ? { ...u, events: u.events.filter(e => e.id !== ev.id) } : u));
+                          }}
+                            className="bg-red-500/20 hover:bg-red-500/30 text-red-400 h-7 px-2">
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
                         </div>
                       </div>
                     ))}
