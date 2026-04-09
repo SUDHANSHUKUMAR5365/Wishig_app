@@ -246,7 +246,7 @@ const CreateEvent = () => {
                   <button
                     key={type.id}
                     data-testid={`occasion-${type.id}`}
-                    onClick={useCallback(() => setFormData(prev => ({ ...prev, occasion_type: type.id })), [type.id])}
+                    onClick={() => setFormData(prev => ({ ...prev, occasion_type: type.id }))}
                     className={`p-4 rounded-xl text-center transition-all duration-300 ${
                       formData.occasion_type === type.id
                         ? 'bg-[#D4AF37] text-[#0A0F1F]'
@@ -295,7 +295,7 @@ const CreateEvent = () => {
                   <CalendarComponent
                     mode="single"
                     selected={formData.event_date}
-                    onSelect={useCallback((date) => setFormData(prev => ({ ...prev, event_date: date || new Date() })), [])}
+                    onSelect={(date) => setFormData(prev => ({ ...prev, event_date: date || new Date() }))}
                     className="text-white"
                   />
                 </PopoverContent>
@@ -525,7 +525,7 @@ const CreateEvent = () => {
                       <button
                         key={theme.id}
                         data-testid={`theme-${theme.id}`}
-                        onClick={useCallback(() => setFormData(prev => ({ ...prev, theme: theme.id })), [theme.id])}
+                        onClick={() => setFormData(prev => ({ ...prev, theme: theme.id }))}
                         className={`relative rounded-xl overflow-hidden aspect-video transition-all duration-300 ${
                           formData.theme === theme.id
                             ? 'ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-[#0A0F1F]'

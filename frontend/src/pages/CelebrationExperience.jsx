@@ -13,10 +13,11 @@ import confetti from 'canvas-confetti';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Lock Screen Component
-const LockScreen = ({ hint, correctPin, onUnlock }) => {
+const LockScreen = ({ hint, correctPin, onUnlock, theme }) => {
   const [pin, setPin] = useState('');
   const [shake, setShake] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const isDark = theme.colors.text === '#FFFFFF';
 
   const handleKey = (digit) => {
     if (pin.length >= 4) return;
@@ -38,24 +39,25 @@ const LockScreen = ({ hint, correctPin, onUnlock }) => {
   const handleDelete = () => setPin(p => p.slice(0, -1));
 
   return (
-    <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50 px-6">
+    <div className="fixed inset-0 flex flex-col items-center justify-center z-50 px-6" style={{ backgroundColor: theme.colors.background }}>
       <motion.div
         animate={shake ? { x: [-10, 10, -10, 10, 0] } : {}}
         transition={{ duration: 0.4 }}
         className="flex flex-col items-center w-full max-w-xs"
       >
-        <Lock className="w-12 h-12 text-[#D4AF37] mb-4" />
-        <h2 className="font-heading text-2xl text-white mb-2">This is locked 🔒</h2>
+        <Lock className="w-12 h-12 mb-4" style={{ color: theme.colors.primary }} />
+        <h2 className="font-heading text-2xl mb-2" style={{ color: theme.colors.text }}>This is locked 🔒</h2>
         {hint && (
-          <p className="text-[#94A3B8] text-center mb-6 text-sm">{hint}</p>
+          <p className="text-center mb-6 text-sm" style={{ color: theme.colors.text + '99' }}>{hint}</p>
         )}
 
         {/* PIN dots */}
         <div className="flex gap-4 mb-8">
           {[0,1,2,3].map(i => (
-            <div key={i} className={`w-4 h-4 rounded-full border-2 transition-all ${
-              pin.length > i ? 'bg-[#D4AF37] border-[#D4AF37]' : 'border-white/30'
-            }`} />
+            <div key={i} className="w-4 h-4 rounded-full border-2 transition-all" style={{
+              backgroundColor: pin.length > i ? theme.colors.primary : 'transparent',
+              borderColor: pin.length > i ? theme.colors.primary : theme.colors.text + '40'
+            }} />
           ))}
         </div>
 
@@ -63,17 +65,20 @@ const LockScreen = ({ hint, correctPin, onUnlock }) => {
         <div className="grid grid-cols-3 gap-3 w-full">
           {[1,2,3,4,5,6,7,8,9].map(n => (
             <button key={n} onClick={() => handleKey(n.toString())}
-              className="h-14 rounded-xl bg-white/10 text-white text-xl font-bold hover:bg-white/20 active:scale-95 transition-all">
+              className="h-14 rounded-xl text-xl font-bold active:scale-95 transition-all"
+              style={{ backgroundColor: theme.colors.text + '15', color: theme.colors.text }}>
               {n}
             </button>
           ))}
           <div />
           <button onClick={() => handleKey('0')}
-            className="h-14 rounded-xl bg-white/10 text-white text-xl font-bold hover:bg-white/20 active:scale-95 transition-all">
+            className="h-14 rounded-xl text-xl font-bold active:scale-95 transition-all"
+            style={{ backgroundColor: theme.colors.text + '15', color: theme.colors.text }}>
             0
           </button>
           <button onClick={handleDelete}
-            className="h-14 rounded-xl bg-white/10 text-white text-xl font-bold hover:bg-white/20 active:scale-95 transition-all">
+            className="h-14 rounded-xl text-xl font-bold active:scale-95 transition-all"
+            style={{ backgroundColor: theme.colors.text + '15', color: theme.colors.text }}>
             ⌫
           </button>
         </div>
@@ -87,7 +92,7 @@ const LockScreen = ({ hint, correctPin, onUnlock }) => {
 };
 
 // Voice Note Timer - plays voice then shows cake
-const VoiceTimer = ({ voiceUrl, onComplete }) => {
+const VoiceTimer = ({ voiceUrl, onComplete, theme }) => {
   const audioRef = useRef(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [started, setStarted] = useState(false);
@@ -99,13 +104,11 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
     onComplete();
   }, [onComplete]);
 
-  // Always fallback after 30s max no matter what
   useEffect(() => {
     const t = setTimeout(finish, 30000);
     return () => clearTimeout(t);
   }, [finish]);
 
-  // No voice — skip after 2s
   useEffect(() => {
     if (!voiceUrl) { const t = setTimeout(finish, 2000); return () => clearTimeout(t); }
   }, [voiceUrl, finish]);
@@ -119,7 +122,6 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
     if (audioRef.current) audioRef.current.play().catch(() => finish());
   };
 
-  // countdown tick
   useEffect(() => {
     if (!started || timeLeft === null) return;
     if (timeLeft <= 0) { finish(); return; }
@@ -128,32 +130,32 @@ const VoiceTimer = ({ voiceUrl, onComplete }) => {
   }, [started, timeLeft, finish]);
 
   if (!voiceUrl) return (
-    <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50">
+    <div className="fixed inset-0 flex flex-col items-center justify-center z-50" style={{ backgroundColor: theme.colors.background }}>
       <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
-        <Sparkles className="w-16 h-16 text-[#D4AF37] mb-6" />
+        <Sparkles className="w-16 h-16 mb-6" style={{ color: theme.colors.primary }} />
       </motion.div>
-      <p className="text-white text-xl font-heading text-center">Something special is waiting...</p>
+      <p className="text-xl font-heading text-center" style={{ color: theme.colors.text }}>Something special is waiting...</p>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 bg-[#0A0F1F] flex flex-col items-center justify-center z-50 px-6">
+    <div className="fixed inset-0 flex flex-col items-center justify-center z-50 px-6" style={{ backgroundColor: theme.colors.background }}>
       <audio ref={audioRef} src={voiceUrl} onLoadedMetadata={handleLoaded} onEnded={finish} onError={finish} />
       <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
-        <Sparkles className="w-16 h-16 text-[#D4AF37] mb-6" />
+        <Sparkles className="w-16 h-16 mb-6" style={{ color: theme.colors.primary }} />
       </motion.div>
-      <p className="text-white text-xl font-heading mb-8 text-center">A special message for you...</p>
+      <p className="text-xl font-heading mb-8 text-center" style={{ color: theme.colors.text }}>A special message for you...</p>
       {!started ? (
         <Button onClick={start} className="btn-gold px-8 py-4 text-lg rounded-full">
           <Play className="w-5 h-5 mr-2" /> Play Message
         </Button>
       ) : (
         <div className="flex flex-col items-center gap-4">
-          <div className="w-24 h-24 rounded-full border-4 border-[#D4AF37] flex items-center justify-center">
-            <span className="text-[#D4AF37] text-4xl font-bold">{timeLeft ?? '...'}</span>
+          <div className="w-24 h-24 rounded-full border-4 flex items-center justify-center" style={{ borderColor: theme.colors.primary }}>
+            <span className="text-4xl font-bold" style={{ color: theme.colors.primary }}>{timeLeft ?? '...'}</span>
           </div>
-          <p className="text-white/60 text-sm">Cake coming soon...</p>
-          <button onClick={finish} className="text-white/30 text-xs underline mt-2">Skip</button>
+          <p className="text-sm" style={{ color: theme.colors.text + '99' }}>Cake coming soon...</p>
+          <button onClick={finish} className="text-xs underline mt-2" style={{ color: theme.colors.text + '50' }}>Skip</button>
         </div>
       )}
     </div>
@@ -203,7 +205,7 @@ const InteractiveCake = ({ theme, candlesBlown, onBlowComplete }) => {
         </Button>
       )}
       {candlesBlown && !showSmoke && (
-        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 text-[#D4AF37] font-heading text-xl">
+        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 font-heading text-xl" style={{ color: theme.colors.primary }}>
           Make a wish! ✨
         </motion.p>
       )}
@@ -241,11 +243,11 @@ const BalloonPopGame = ({ theme, onComplete }) => {
 
   return (
     <div
-      className="relative w-full rounded-xl bg-gradient-to-b from-sky-900/40 to-sky-600/20"
-      style={{ height: '80vh', overflow: 'hidden', zIndex: 2 }}
+      className="relative w-full rounded-xl"
+      style={{ height: '80vh', overflow: 'hidden', zIndex: 2, background: `linear-gradient(to bottom, ${theme.colors.primary}15, ${theme.colors.secondary}10)`, border: `1px solid ${theme.colors.primary}20` }}
     >
-      <div className="absolute top-4 left-4 bg-white/10 backdrop-blur px-4 py-2 rounded-full z-10">
-        <span className="text-white font-bold">🎈 {score}/15</span>
+      <div className="absolute top-4 left-4 backdrop-blur px-4 py-2 rounded-full z-10" style={{ backgroundColor: theme.colors.primary + '25' }}>
+        <span className="font-bold" style={{ color: theme.colors.text }}>🎈 {score}/15</span>
       </div>
       {balloons.map(b => !b.popped && (
         <motion.div
@@ -266,10 +268,10 @@ const BalloonPopGame = ({ theme, onComplete }) => {
         </motion.div>
       ))}
       {done && (
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute inset-0 flex items-center justify-center bg-black/50" style={{ zIndex: 10 }}>
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 10, backgroundColor: theme.colors.background + 'CC' }}>
           <div className="text-center">
-            <Award className="w-16 h-16 text-[#D4AF37] mx-auto mb-4" />
-            <p className="font-heading text-3xl text-white">You Won! 🎉</p>
+            <Award className="w-16 h-16 mx-auto mb-4" style={{ color: theme.colors.primary }} />
+            <p className="font-heading text-3xl" style={{ color: theme.colors.text }}>You Won! 🎉</p>
           </div>
         </motion.div>
       )}
@@ -378,8 +380,8 @@ const FlipCards = ({ cards, theme, onComplete }) => {
               ❓
             </div>
             {/* Back */}
-            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0, backgroundColor: theme.colors.primary + '20', border: `1px solid ${theme.colors.primary}`, borderRadius: '12px' }}
-              className="flex items-center justify-center p-3 text-center text-sm text-white">
+            <div style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)', position: 'absolute', inset: 0, backgroundColor: theme.colors.primary + '25', border: `1px solid ${theme.colors.primary}`, borderRadius: '12px', color: theme.colors.text }}
+              className="flex items-center justify-center p-3 text-center text-sm font-medium">
               {card}
             </div>
           </motion.div>
@@ -392,6 +394,7 @@ const FlipCards = ({ cards, theme, onComplete }) => {
 // Love Letter
 const LoveLetter = ({ note, theme }) => {
   const [displayed, setDisplayed] = useState('');
+  const isDark = theme.colors.text === '#FFFFFF';
   useEffect(() => {
     if (!note) return;
     let i = 0;
@@ -399,17 +402,17 @@ const LoveLetter = ({ note, theme }) => {
     return () => clearInterval(t);
   }, [note]);
   if (!note) return null;
+  const cardBg = isDark ? theme.colors.primary + '12' : '#fffdf0';
+  const textColor = isDark ? theme.colors.text : '#3a2a1a';
   return (
-    <div className="relative" style={{ transform: 'rotate(-1deg)' }}>
-      <div className="bg-[#fffdf0] rounded-sm p-8 shadow-2xl" style={{ border: '1px solid rgba(0,0,0,0.1)' }}>
-        <div className="absolute inset-5 border border-black/10 pointer-events-none rounded-sm" />
-        <p className="font-heading text-2xl mb-4" style={{ color: theme.colors.primary, fontFamily: 'Dancing Script, cursive' }}>
-          Dear {'{'}name{'}'} 💝
-        </p>
-        <p className="leading-relaxed text-gray-700" style={{ fontFamily: 'Dancing Script, cursive', fontSize: '1.1rem' }}>
-          {displayed}<span className="animate-pulse">|</span>
-        </p>
-      </div>
+    <div className="relative rounded-xl p-8 shadow-2xl" style={{ transform: 'rotate(-1deg)', backgroundColor: cardBg, border: `1px solid ${theme.colors.primary}30` }}>
+      <div className="absolute inset-5 rounded-xl pointer-events-none" style={{ border: `1px solid ${theme.colors.primary}20` }} />
+      <p className="font-heading text-2xl mb-4" style={{ color: theme.colors.primary, fontFamily: 'Dancing Script, cursive' }}>
+        💝 A message for you...
+      </p>
+      <p className="leading-relaxed" style={{ fontFamily: 'Dancing Script, cursive', fontSize: '1.1rem', color: textColor }}>
+        {displayed}<span className="animate-pulse" style={{ color: theme.colors.primary }}>|</span>
+      </p>
     </div>
   );
 };
@@ -449,7 +452,7 @@ const HeartsCanvas = ({ color }) => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
-const MusicPlayer = ({ songUrl }) => {
+const MusicPlayer = ({ songUrl, theme }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -484,13 +487,13 @@ const MusicPlayer = ({ songUrl }) => {
   if (!songUrl) return null;
 
   return (
-    <div className="glass rounded-xl p-3 flex items-center gap-3">
+    <div className="rounded-xl p-3 flex items-center gap-3" style={{ backgroundColor: theme.colors.primary + '18', border: `1px solid ${theme.colors.primary}30` }}>
       <audio ref={audioRef} src={songUrl} onTimeUpdate={handleTimeUpdate} loop />
-      <button onClick={togglePlay} className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#0A0F1F] shrink-0" data-testid="music-play-btn">
+      <button onClick={togglePlay} className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }} data-testid="music-play-btn">
         {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
       </button>
       <Slider value={[progress]} onValueChange={handleSeek} max={100} step={0.1} className="flex-1 cursor-pointer" />
-      <button onClick={toggleMute} className="text-white shrink-0" data-testid="music-mute-btn">
+      <button onClick={toggleMute} className="shrink-0" style={{ color: theme.colors.text }} data-testid="music-mute-btn">
         {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
       </button>
     </div>
@@ -574,8 +577,8 @@ const CelebrationExperience = () => {
   };
 
   if (loading) return (
-    <div className="fixed inset-0 bg-[#0A0F1F] flex items-center justify-center">
-      <Sparkles className="w-12 h-12 text-[#D4AF37] animate-pulse" />
+    <div className="fixed inset-0 flex items-center justify-center" style={{ backgroundColor: theme.colors.background }}>
+      <Sparkles className="w-12 h-12 animate-pulse" style={{ color: theme.colors.primary }} />
     </div>
   );
 
@@ -600,6 +603,7 @@ const CelebrationExperience = () => {
         <LockScreen
           hint={event.lock_hint}
           correctPin={event.lock_pin}
+          theme={theme}
           onUnlock={() => {
             sessionStorage.setItem(`unlocked_${eventId}`, 'true');
             setUnlocked(true);
@@ -624,8 +628,8 @@ const CelebrationExperience = () => {
               >
                 💌
               </motion.div>
-              <h2 className="font-heading text-2xl text-white mb-3">You have a special message</h2>
-              <p className="text-white/50 text-sm mb-8">Tap the envelope to open</p>
+              <h2 className="font-heading text-2xl mb-3" style={{ color: theme.colors.text }}>You have a special message</h2>
+              <p className="text-sm mb-8" style={{ color: theme.colors.text + '80' }}>Tap the envelope to open</p>
               <Button onClick={() => setPhase('voiceTimer')} className="btn-gold px-8 py-4 rounded-full text-lg">
                 Open ✨
               </Button>
@@ -640,6 +644,7 @@ const CelebrationExperience = () => {
           <motion.div key="voice" exit={{ opacity: 0 }}>
             <VoiceTimer
               voiceUrl={event?.voice_message_url}
+              theme={theme}
               onComplete={() => setPhase('cake')}
             />
           </motion.div>
@@ -702,7 +707,7 @@ const CelebrationExperience = () => {
           {/* Music player fixed top */}
           {event?.song_url && songEnabled && (
             <div className="fixed top-0 left-0 right-0 z-40 p-3 backdrop-blur" style={{ backgroundColor: theme.colors.background + 'CC' }}>
-              <MusicPlayer songUrl={event.song_url} />
+              <MusicPlayer songUrl={event.song_url} theme={theme} />
             </div>
           )}
 
@@ -735,9 +740,9 @@ const CelebrationExperience = () => {
             <AnimatePresence>
               {gameComplete && (
                 <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
-                  <div className="glass rounded-xl p-4 mb-4 text-center">
-                    <Award className="w-8 h-8 text-[#D4AF37] mx-auto mb-2" />
-                    <p className="text-[#D4AF37] font-heading text-lg">Reward Unlocked! Open your gifts 🎁</p>
+                  <div className="rounded-xl p-4 mb-4 text-center" style={{ backgroundColor: theme.colors.primary + '15', border: `1px solid ${theme.colors.primary}40` }}>
+                    <Award className="w-8 h-8 mx-auto mb-2" style={{ color: theme.colors.primary }} />
+                    <p className="font-heading text-lg" style={{ color: theme.colors.primary }}>Reward Unlocked! Open your gifts 🎁</p>
                   </div>
                   <PolaroidGallery theme={theme} photos={event?.photos || []} onComplete={() => setGiftsComplete(true)} />
                 </motion.div>
@@ -772,17 +777,19 @@ const CelebrationExperience = () => {
       <AnimatePresence>
         {showEasterEgg && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0,0,0,0.85)' }}
             onClick={() => setShowEasterEgg(false)}
           >
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="glass rounded-2xl p-8 max-w-md text-center"
+              className="rounded-2xl p-8 max-w-md w-full text-center"
+              style={{ backgroundColor: theme.colors.background, border: `2px solid ${theme.colors.primary}50` }}
               onClick={e => e.stopPropagation()}
             >
-              <Sparkles className="w-16 h-16 text-[#D4AF37] mx-auto mb-4" />
-              <h3 className="font-heading text-2xl text-white mb-4">Secret Message! 🤫</h3>
-              <p className="text-white text-lg">{event?.easter_egg_message}</p>
-              <Button onClick={() => setShowEasterEgg(false)} className="mt-6 btn-gold" data-testid="close-easter-egg-btn">
+              <Sparkles className="w-16 h-16 mx-auto mb-4" style={{ color: theme.colors.primary }} />
+              <h3 className="font-heading text-2xl mb-4" style={{ color: theme.colors.primary }}>Secret Message! 🤫</h3>
+              <p className="text-lg" style={{ color: theme.colors.text }}>{event?.easter_egg_message}</p>
+              <Button onClick={() => setShowEasterEgg(false)} className="mt-6" style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }} data-testid="close-easter-egg-btn">
                 Close
               </Button>
             </motion.div>
