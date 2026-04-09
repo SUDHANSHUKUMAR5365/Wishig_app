@@ -358,19 +358,12 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
             style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}
             onClick={() => setModalPhoto(null)}
           >
-            {/* Close button - always visible at top */}
-            <div className="w-full flex items-center justify-between px-4 py-3 shrink-0" onClick={e => e.stopPropagation()}>
-              <button
-                onClick={() => setModalPhoto(null)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full text-white font-medium"
-                style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }}
-              >
-                <X className="w-4 h-4" /> Back
-              </button>
-              {displayPhotos.length > 1 && (
-                <span className="text-white/60 text-sm">{modalIndex + 1} / {displayPhotos.length}</span>
-              )}
-            </div>
+            {/* Counter top right */}
+            {displayPhotos.length > 1 && (
+              <div className="w-full flex justify-end px-4 pt-4 shrink-0" onClick={e => e.stopPropagation()}>
+                <span className="text-white/60 text-sm bg-black/40 px-3 py-1 rounded-full">{modalIndex + 1} / {displayPhotos.length}</span>
+              </div>
+            )}
 
             {/* Image */}
             <div className="flex-1 flex items-center justify-center w-full px-4 relative" onClick={e => e.stopPropagation()}>
@@ -390,8 +383,16 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
               )}
             </div>
 
-            {/* Bottom safe area */}
-            <div className="h-6 shrink-0" />
+            {/* Back button at bottom */}
+            <div className="w-full flex justify-center px-4 py-5 shrink-0" onClick={e => e.stopPropagation()}>
+              <button
+                onClick={() => setModalPhoto(null)}
+                className="flex items-center gap-2 px-6 py-3 rounded-full font-medium text-sm"
+                style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }}
+              >
+                <X className="w-4 h-4" /> Close
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
