@@ -22,6 +22,10 @@ import cloudinary.uploader
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 import requests as http_requests
+import random
+import aiosmtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -46,6 +50,15 @@ JWT_EXPIRE_DAYS = 30
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'kumarsudhanshurakesh@gmail.com')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Sud@5365#')
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+
+# Email config for OTP
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USER = os.environ.get('SMTP_USER', ADMIN_EMAIL)
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+
+# OTP storage (in-memory, expires in 10 min)
+otp_store = {}
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 security = HTTPBearer(auto_error=False)
@@ -94,6 +107,14 @@ class LoginRequest(BaseModel):
 
 class GoogleAuthRequest(BaseModel):
     token: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    otp: str
+    new_password: str
 
 class AuthResponse(BaseModel):
     token: str
@@ -246,6 +267,80 @@ async def google_auth(body: GoogleAuthRequest):
 @api_router.get("/auth/me")
 async def get_me(current_user=Depends(get_current_user)):
     return current_user
+
+# Forgot password - send OTP
+@api_router.post("/auth/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest):
+    user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Email not found")
+    
+    otp = str(random.randint(100000, 999999))
+    otp_store[body.email.lower()] = {"otp": otp, "expires": datetime.now(timezone.utc) + timedelta(minutes=10)}
+    
+    # Send email
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USER
+        msg['To'] = body.email.lower()
+        msg['Subject'] = 'Reset Your Password - Celebration QR'
+        
+        html = f"""
+        <html>
+          <body style="font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5;">
+            <div style="max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px;">
+              <h2 style="color: #D4AF37;">Reset Your Password</h2>
+              <p>Your OTP code is:</p>
+              <h1 style="color: #0A0F1F; letter-spacing: 5px; font-size: 32px;">{otp}</h1>
+              <p style="color: #666;">This code expires in 10 minutes.</p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+              <p style="color: #999; font-size: 12px;">If you didn't request this, ignore this email.</p>
+            </div>
+          </body>
+        </html>
+        """
+        msg.attach(MIMEText(html, 'html'))
+        
+        await aiosmtplib.send(
+            msg,
+            hostname=SMTP_HOST,
+            port=SMTP_PORT,
+            username=SMTP_USER,
+            password=SMTP_PASSWORD,
+            start_tls=True
+        )
+        return {"message": "OTP sent to your email"}
+    except Exception as e:
+        logger.error(f"Email send error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send OTP email")
+
+# Reset password with OTP
+@api_router.post("/auth/reset-password")
+async def reset_password(body: ResetPasswordRequest):
+    email = body.email.lower()
+    stored = otp_store.get(email)
+    
+    if not stored:
+        raise HTTPException(status_code=400, detail="OTP not found or expired")
+    
+    if datetime.now(timezone.utc) > stored['expires']:
+        del otp_store[email]
+        raise HTTPException(status_code=400, detail="OTP expired")
+    
+    if stored['otp'] != body.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    # Update password
+    result = await db.users.update_one(
+        {"email": email},
+        {"$set": {"password": hash_password(body.new_password)}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    del otp_store[email]
+    return {"message": "Password reset successfully"}
 
 # --- General Routes ---
 @api_router.get("/")
