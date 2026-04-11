@@ -10,6 +10,7 @@ import CreateEvent from "@/pages/CreateEvent";
 import CelebrationExperience from "@/pages/CelebrationExperience";
 import Dashboard from "@/pages/Dashboard";
 import AdminPage from "@/pages/AdminPage";
+import ProfilePage from "@/pages/ProfilePage";
 
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || '';
 
@@ -29,6 +30,7 @@ function AppRoutes() {
           <Route path="/celebrate/:eventId" element={<CelebrationExperience />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-center" richColors />

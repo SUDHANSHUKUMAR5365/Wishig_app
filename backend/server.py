@@ -351,7 +351,23 @@ async def reset_password(body: ResetPasswordRequest):
     del otp_store[email]
     return {"message": "Password reset successfully"}
 
-# --- General Routes ---
+# --- Profile ---
+@api_router.get("/profile")
+async def get_profile(current_user=Depends(get_current_user)):
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@api_router.put("/profile")
+async def update_profile(body: dict, current_user=Depends(get_current_user)):
+    allowed = {"name", "mobile", "bio", "avatar_url"}
+    update_data = {k: v for k, v in body.items() if k in allowed}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    await db.users.update_one({"id": current_user["id"]}, {"$set": update_data})
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+    return user
 @api_router.get("/")
 async def root():
     return {"message": "Celebration QR Experience API"}

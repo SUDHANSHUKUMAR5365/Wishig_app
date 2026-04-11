@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Sparkles, Plus, Trash2, Eye, QrCode, Share2, Copy, 
-  ChevronLeft, Calendar, ExternalLink, Download, LogOut
+  ChevronLeft, Calendar, ExternalLink, Download, LogOut, User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -26,7 +26,7 @@ const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { token, logout } = useAuth();
+  const { token, logout, user } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -134,6 +134,14 @@ const Dashboard = () => {
             <span className="font-heading text-white text-lg">My Celebrations</span>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-9 h-9 rounded-full overflow-hidden border border-[#D4AF37]/40 bg-white/5 flex items-center justify-center hover:border-[#D4AF37] transition-colors"
+            >
+              {user?.avatar_url
+                ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                : <User className="w-4 h-4 text-[#94A3B8]" />}
+            </button>
             <Button onClick={() => { logout(); navigate('/login'); }} variant="outline" className="border-white/10 text-white hover:bg-white/5">
               <LogOut className="w-4 h-4" />
             </Button>
