@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Users, Eye, Gift, Trash2, LogOut, ExternalLink, Lock, ChevronDown, ChevronUp, UserX } from 'lucide-react';
+import { Sparkles, Users, Eye, Gift, Trash2, LogOut, ExternalLink, Lock, ChevronDown, ChevronUp, UserX, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -64,6 +64,9 @@ const AdminPage = () => {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/')} className="text-[#94A3B8] hover:text-white flex items-center gap-1 mr-3">
+              <ChevronLeft className="w-5 h-5" /> Back
+            </button>
             <Sparkles className="w-6 h-6 text-[#D4AF37]" />
             <span className="font-heading text-white text-xl">Admin Dashboard</span>
           </div>

@@ -26,6 +26,9 @@ import random
 import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import json
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -157,6 +160,8 @@ class EventCreate(BaseModel):
     video_url: Optional[str] = None
     special_note: Optional[str] = None
     song_url: Optional[str] = None
+    song_start: int = 0
+    song_duration: int = 60
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: List[TimelineItem] = []
@@ -177,6 +182,8 @@ class Event(BaseModel):
     video_url: Optional[str] = None
     special_note: Optional[str] = None
     song_url: Optional[str] = None
+    song_start: int = 0
+    song_duration: int = 60
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: List[TimelineItem] = []
@@ -199,6 +206,8 @@ class EventUpdate(BaseModel):
     video_url: Optional[str] = None
     special_note: Optional[str] = None
     song_url: Optional[str] = None
+    song_start: Optional[int] = None
+    song_duration: Optional[int] = None
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: Optional[List[TimelineItem]] = None
@@ -462,6 +471,33 @@ async def admin_stats(current_user=Depends(get_current_user)):
         "total_users": total_users,
         "total_views": total_views[0]["total"] if total_views else 0
     }
+
+class AIMessageRequest(BaseModel):
+    person_name: str
+    occasion_type: str
+    custom_occasion: Optional[str] = None
+    tone: str = "heartfelt"  # heartfelt, funny, poetic, short
+
+@api_router.post("/ai/generate-message")
+async def generate_message(body: AIMessageRequest, current_user=Depends(get_current_user)):
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="AI not configured")
+    
+    occasion = body.custom_occasion if body.occasion_type == 'custom' and body.custom_occasion else body.occasion_type
+    prompt = f"Write a {body.tone} {occasion} message for {body.person_name}. Keep it under 100 words, personal and warm. No quotes, just the message."
+    
+    try:
+        resp = http_requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}",
+            json={"contents": [{"parts": [{"text": prompt}]}]},
+            timeout=15
+        )
+        data = resp.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        return {"message": text.strip()}
+    except Exception as e:
+        logger.error(f"AI generate error: {e}")
+        raise HTTPException(status_code=500, detail="AI generation failed")
 
 app.include_router(api_router)
 

@@ -1,17 +1,17 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronLeft, ChevronRight, User, Calendar, Image, Video, 
   MessageSquare, Mic, Music, Palette, Check, Loader2, Upload,
-  X, Sparkles, QrCode, Copy, Download, ExternalLink, Heart
+  X, Sparkles, QrCode, Copy, Download, ExternalLink, Heart, Wand2,
+  Play, Pause
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getThemesByCategory } from '@/lib/themes';
@@ -41,6 +41,205 @@ const occasionTypes = [
 
 const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
+// Instagram-style song clip picker
+const SongClipper = ({ songUrl, songStart, songDuration, onChange }) => {
+  const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [totalDuration, setTotalDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(songStart);
+  const [dragging, setDragging] = useState(null); // 'start' | 'end' | 'window'
+  const trackRef = useRef(null);
+  const dragStartX = useRef(0);
+  const dragStartVal = useRef(0);
+  const CLIP_DURATION = 60;
+
+  const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onLoaded = () => {
+      setTotalDuration(audio.duration);
+      audio.currentTime = songStart;
+    };
+    audio.addEventListener('loadedmetadata', onLoaded);
+    if (audio.readyState >= 1) onLoaded();
+    return () => audio.removeEventListener('loadedmetadata', onLoaded);
+  }, [songUrl]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onTime = () => {
+      setCurrentTime(audio.currentTime);
+      // loop within clip
+      if (audio.currentTime >= songStart + CLIP_DURATION) {
+        audio.currentTime = songStart;
+      }
+    };
+    audio.addEventListener('timeupdate', onTime);
+    return () => audio.removeEventListener('timeupdate', onTime);
+  }, [songStart]);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.currentTime = songStart;
+      audio.play().catch(() => {});
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  // Convert pixel offset on track to seconds
+  const pxToSec = (px) => {
+    if (!trackRef.current || !totalDuration) return 0;
+    return (px / trackRef.current.offsetWidth) * totalDuration;
+  };
+
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+
+  const startDrag = (e, type) => {
+    e.preventDefault();
+    setDragging(type);
+    dragStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
+    dragStartVal.current = songStart;
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const dx = clientX - dragStartX.current;
+      const dSec = pxToSec(dx);
+      let newStart = clamp(dragStartVal.current + dSec, 0, totalDuration - CLIP_DURATION);
+      newStart = Math.round(newStart);
+      onChange(newStart, CLIP_DURATION);
+      if (audioRef.current) audioRef.current.currentTime = newStart;
+    };
+    const onUp = () => setDragging(null);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    };
+  }, [dragging, totalDuration, songStart]);
+
+  if (!totalDuration) return (
+    <div className="flex items-center justify-center py-6">
+      <Loader2 className="w-6 h-6 text-[#D4AF37] animate-spin mr-2" />
+      <span className="text-[#94A3B8] text-sm">Loading audio...</span>
+    </div>
+  );
+
+  const startPct = (songStart / totalDuration) * 100;
+  const widthPct = (CLIP_DURATION / totalDuration) * 100;
+  const playheadPct = ((currentTime - songStart) / CLIP_DURATION) * 100;
+
+  // Generate fake waveform bars
+  const bars = Array.from({ length: 60 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.7 + songStart * 0.1)) * 0.8);
+
+  return (
+    <div className="space-y-4">
+      <audio ref={audioRef} src={songUrl} preload="metadata" />
+
+      {/* Play button + time */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={togglePlay}
+          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+          style={{ backgroundColor: '#D4AF37', color: '#0A0F1F' }}
+        >
+          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+        </button>
+        <div className="flex-1">
+          <p className="text-white text-sm font-medium">Preview clip</p>
+          <p className="text-[#94A3B8] text-xs">
+            {fmtTime(songStart)} → {fmtTime(Math.min(songStart + CLIP_DURATION, totalDuration))} &nbsp;·&nbsp; {fmtTime(totalDuration)} total
+          </p>
+        </div>
+      </div>
+
+      {/* Waveform track */}
+      <div className="relative select-none" style={{ touchAction: 'none' }}>
+        {/* Waveform bars */}
+        <div
+          ref={trackRef}
+          className="relative h-16 rounded-xl overflow-hidden flex items-center gap-px px-1"
+          style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+        >
+          {bars.map((h, i) => {
+            const barSec = (i / bars.length) * totalDuration;
+            const inClip = barSec >= songStart && barSec < songStart + CLIP_DURATION;
+            return (
+              <div
+                key={i}
+                className="flex-1 rounded-full transition-colors"
+                style={{
+                  height: `${h * 100}%`,
+                  backgroundColor: inClip ? '#D4AF37' : 'rgba(255,255,255,0.15)',
+                }}
+              />
+            );
+          })}
+
+          {/* Clip window overlay */}
+          <div
+            className="absolute top-0 bottom-0 rounded-xl border-2 cursor-grab active:cursor-grabbing"
+            style={{
+              left: `${startPct}%`,
+              width: `${widthPct}%`,
+              borderColor: '#D4AF37',
+              backgroundColor: 'rgba(212,175,55,0.08)',
+            }}
+            onMouseDown={(e) => startDrag(e, 'window')}
+            onTouchStart={(e) => startDrag(e, 'window')}
+          >
+            {/* Left handle */}
+            <div className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize"
+              style={{ backgroundColor: '#D4AF37', borderRadius: '8px 0 0 8px' }}>
+              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded" />
+              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded ml-0.5" />
+            </div>
+            {/* Right handle */}
+            <div className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize"
+              style={{ backgroundColor: '#D4AF37', borderRadius: '0 8px 8px 0' }}>
+              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded" />
+              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded ml-0.5" />
+            </div>
+            {/* Playhead */}
+            {isPlaying && (
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-white rounded"
+                style={{ left: `${clamp(playheadPct, 0, 100)}%`, transition: 'left 0.1s linear' }}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Time labels */}
+        <div className="flex justify-between mt-1 px-1">
+          <span className="text-[#94A3B8] text-xs">{fmtTime(0)}</span>
+          <span className="text-[#94A3B8] text-xs">{fmtTime(totalDuration)}</span>
+        </div>
+      </div>
+
+      <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-3 text-center">
+        <p className="text-[#D4AF37] text-xs">
+          🎵 Clip: <strong>{fmtTime(songStart)}</strong> → <strong>{fmtTime(Math.min(songStart + CLIP_DURATION, totalDuration))}</strong> &nbsp;·&nbsp; Drag the golden window to reposition
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const CreateEvent = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
@@ -48,6 +247,8 @@ const CreateEvent = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
   const [createdEventId, setCreatedEventId] = useState(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiTone, setAiTone] = useState('heartfelt');
   
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
@@ -65,6 +266,8 @@ const CreateEvent = () => {
     special_note: '',
     voice_message_url: '',
     song_url: '',
+    song_start: 0,
+    song_duration: 60,
     easter_egg_message: '',
     timeline: [],
     flip_cards: ['', '', '', '', '', ''],
@@ -76,6 +279,25 @@ const CreateEvent = () => {
     const pin = Math.floor(1000 + Math.random() * 9000).toString();
     setFormData(prev => ({ ...prev, lock_pin: pin }));
     toast.success(`PIN generated: ${pin} — Save this!`);
+  };
+
+  const generateAIMessage = async () => {
+    if (!formData.person_name) { toast.error('Enter the person\'s name first'); return; }
+    setIsGeneratingAI(true);
+    try {
+      const res = await axios.post(`${API}/ai/generate-message`, {
+        person_name: formData.person_name,
+        occasion_type: formData.occasion_type,
+        custom_occasion: formData.custom_occasion,
+        tone: aiTone,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setFormData(prev => ({ ...prev, special_note: res.data.message }));
+      toast.success('Message generated!');
+    } catch {
+      toast.error('AI generation failed. Add your GEMINI_API_KEY to backend .env');
+    } finally {
+      setIsGeneratingAI(false);
+    }
   };
 
   const ALLOWED_FOLDERS = ['photos', 'videos', 'voice', 'songs'];
@@ -95,10 +317,15 @@ const CreateEvent = () => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     
+    const remaining = 10 - formData.photos.length;
+    if (remaining <= 0) { toast.error('Maximum 10 photos allowed'); return; }
+    const toUpload = files.slice(0, remaining);
+    if (files.length > remaining) toast.warning(`Only ${remaining} more photo(s) allowed. Uploading first ${remaining}.`);
+    
     setUploadProgress(prev => ({ ...prev, photos: 'uploading' }));
     
     try {
-      const uploadPromises = files.map(async (file) => {
+      const uploadPromises = toUpload.map(async (file) => {
         const url = await uploadFile(file, 'photos');
         return { url, caption: '' };
       });
@@ -110,7 +337,7 @@ const CreateEvent = () => {
         photos: [...prev.photos, ...uploadedPhotos]
       }));
       
-      toast.success(`${files.length} photo(s) uploaded!`);
+      toast.success(`${toUpload.length} photo(s) uploaded!`);
     } catch (error) {
       console.error('Photo upload error:', error);
       toast.error('Failed to upload photos');
@@ -196,6 +423,8 @@ const CreateEvent = () => {
         lock_pin: formData.lock_pin || null,
         lock_hint: formData.lock_hint || null,
         flip_cards: formData.flip_cards.filter(c => c.trim() !== ''),
+        song_start: formData.song_start || 0,
+        song_duration: formData.song_duration || 60,
       };
 
       const response = await axios.post(`${API}/events`, eventData, {
@@ -275,51 +504,97 @@ const CreateEvent = () => {
           </div>
         );
 
-      case 2:
+      case 2: {
+        const d = formData.event_date || new Date();
+        const selYear = d.getFullYear();
+        const selMonth = d.getMonth();
+        const selDay = d.getDate();
+        const currentYear = new Date().getFullYear();
+        const years = Array.from({ length: currentYear - 1900 + 2 }, (_, i) => currentYear + 1 - i);
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
+        const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+        const updateDate = (year, month, day) => {
+          const maxDay = new Date(year, month + 1, 0).getDate();
+          const safeDay = Math.min(day, maxDay);
+          setFormData(prev => ({ ...prev, event_date: new Date(year, month, safeDay) }));
+        };
+
         return (
           <div className="space-y-6">
             <div>
               <Label className="text-white mb-3 block">Event Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    data-testid="date-picker-trigger"
-                    variant="outline"
-                    className="w-full h-12 bg-white/5 border-white/10 text-white justify-start"
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {formData.event_date ? format(formData.event_date, 'PPP') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-[#131B2F] border-white/10">
-                  <CalendarComponent
-                    mode="single"
-                    selected={formData.event_date}
-                    onSelect={(date) => setFormData(prev => ({ ...prev, event_date: date || new Date() }))}
-                    className="text-white"
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[#94A3B8] text-xs mb-1 block">Day</Label>
+                  <Select value={String(selDay)} onValueChange={v => updateDate(selYear, selMonth, Number(v))}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-12">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#131B2F] border-white/10 text-white max-h-60">
+                      {days.map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[#94A3B8] text-xs mb-1 block">Month</Label>
+                  <Select value={String(selMonth)} onValueChange={v => updateDate(selYear, Number(v), selDay)}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-12">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#131B2F] border-white/10 text-white max-h-60">
+                      {months.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[#94A3B8] text-xs mb-1 block">Year</Label>
+                  <Select value={String(selYear)} onValueChange={v => updateDate(Number(v), selMonth, selDay)}>
+                    <SelectTrigger className="bg-white/5 border-white/10 text-white h-12">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#131B2F] border-white/10 text-white max-h-60">
+                      {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-[#94A3B8] text-sm mt-3">
+                Selected: <span className="text-white">{format(formData.event_date, 'PPP')}</span>
+              </p>
             </div>
           </div>
         );
+      }
 
       case 3:
         return (
           <div className="space-y-6">
             <div>
-              <Label className="text-white mb-3 block">Upload Photos</Label>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-white">Upload Photos</Label>
+                <span className={`text-sm font-medium ${formData.photos.length >= 10 ? 'text-red-400' : 'text-[#94A3B8]'}`}>
+                  {formData.photos.length}/10
+                </span>
+              </div>
               <div
-                onClick={() => photoInputRef.current?.click()}
-                className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-[#D4AF37]/50 transition-colors"
+                onClick={() => formData.photos.length < 10 && photoInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                  formData.photos.length >= 10
+                    ? 'border-red-500/30 cursor-not-allowed opacity-50'
+                    : 'border-white/20 cursor-pointer hover:border-[#D4AF37]/50'
+                }`}
               >
                 {uploadProgress.photos === 'uploading' ? (
                   <Loader2 className="w-12 h-12 text-[#D4AF37] mx-auto animate-spin" />
                 ) : (
                   <>
                     <Upload className="w-12 h-12 text-[#94A3B8] mx-auto mb-3" />
-                    <p className="text-white mb-1">Click to upload photos</p>
-                    <p className="text-[#94A3B8] text-sm">PNG, JPG up to 10MB each</p>
+                    <p className="text-white mb-1">
+                      {formData.photos.length >= 10 ? 'Maximum photos reached' : 'Click to upload photos'}
+                    </p>
+                    <p className="text-[#94A3B8] text-sm">PNG, JPG up to 10MB each · Max 10 photos</p>
                   </>
                 )}
               </div>
@@ -393,11 +668,34 @@ const CreateEvent = () => {
           <div className="space-y-6">
             <div>
               <Label className="text-white mb-3 block">Special Note</Label>
+              
+              {/* AI Generator */}
+              <div className="flex gap-2 mb-3">
+                <Select value={aiTone} onValueChange={setAiTone}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white h-10 flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#131B2F] border-white/10 text-white">
+                    <SelectItem value="heartfelt">💝 Heartfelt</SelectItem>
+                    <SelectItem value="funny">😄 Funny</SelectItem>
+                    <SelectItem value="poetic">🌸 Poetic</SelectItem>
+                    <SelectItem value="short">⚡ Short & Sweet</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={generateAIMessage}
+                  disabled={isGeneratingAI}
+                  className="bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#D4AF37] border border-[#D4AF37]/30 shrink-0"
+                >
+                  {isGeneratingAI ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Wand2 className="w-4 h-4 mr-1" /> AI Write</>}
+                </Button>
+              </div>
+
               <Textarea
                 data-testid="special-note-input"
                 value={formData.special_note}
                 onChange={(e) => setFormData(prev => ({ ...prev, special_note: e.target.value }))}
-                placeholder="Write your heartfelt message here..."
+                placeholder="Write your heartfelt message here, or use AI to generate one..."
                 className="bg-white/5 border-white/10 text-white min-h-[150px] resize-none"
               />
             </div>
@@ -487,7 +785,7 @@ const CreateEvent = () => {
                 ) : formData.song_url ? (
                   <div className="text-[#D4AF37]">
                     <Check className="w-12 h-12 mx-auto mb-2" />
-                    <p>Song uploaded!</p>
+                    <p>Song uploaded! <span className="text-[#94A3B8] text-sm">Click to replace</span></p>
                   </div>
                 ) : (
                   <>
@@ -506,6 +804,19 @@ const CreateEvent = () => {
                 data-testid="song-upload-input"
               />
             </div>
+
+            {formData.song_url && (
+              <div className="border border-white/10 rounded-xl p-4">
+                <Label className="text-white block mb-4">🎵 Pick your clip</Label>
+                <p className="text-[#94A3B8] text-xs mb-4">Drag the golden window to choose which 60 seconds plays on repeat.</p>
+                <SongClipper
+                  songUrl={formData.song_url}
+                  songStart={formData.song_start}
+                  songDuration={formData.song_duration}
+                  onChange={(start, duration) => setFormData(prev => ({ ...prev, song_start: start, song_duration: duration }))}
+                />
+              </div>
+            )}
           </div>
         );
 

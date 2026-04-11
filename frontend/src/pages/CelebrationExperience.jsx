@@ -497,15 +497,17 @@ const HeartsCanvas = ({ color }) => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
-const MusicPlayer = ({ songUrl, theme }) => {
+const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const clipEnd = songStart + songDuration;
 
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.loop = true;
+      audioRef.current.loop = false;
+      audioRef.current.currentTime = songStart;
       audioRef.current.play().catch(() => {});
       setIsPlaying(true);
     }
@@ -522,22 +524,32 @@ const MusicPlayer = ({ songUrl, theme }) => {
   };
 
   const handleTimeUpdate = () => {
-    if (audioRef.current) setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100 || 0);
+    if (!audioRef.current) return;
+    const ct = audioRef.current.currentTime;
+    // Loop back to start when clip ends
+    if (ct >= clipEnd) {
+      audioRef.current.currentTime = songStart;
+      audioRef.current.play().catch(() => {});
+    }
+    setProgress(((ct - songStart) / songDuration) * 100 || 0);
   };
 
   const handleSeek = (value) => {
-    if (audioRef.current) { audioRef.current.currentTime = (value[0] / 100) * audioRef.current.duration; setProgress(value[0]); }
+    if (audioRef.current) {
+      audioRef.current.currentTime = songStart + (value[0] / 100) * songDuration;
+      setProgress(value[0]);
+    }
   };
 
   if (!songUrl) return null;
 
   return (
     <div className="rounded-xl p-3 flex items-center gap-3" style={{ backgroundColor: theme.colors.primary + '18', border: `1px solid ${theme.colors.primary}30` }}>
-      <audio ref={audioRef} src={songUrl} onTimeUpdate={handleTimeUpdate} loop />
+      <audio ref={audioRef} src={songUrl} onTimeUpdate={handleTimeUpdate} />
       <button onClick={togglePlay} className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }} data-testid="music-play-btn">
         {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
       </button>
-      <Slider value={[progress]} onValueChange={handleSeek} max={100} step={0.1} className="flex-1 cursor-pointer" />
+      <Slider value={[Math.min(100, Math.max(0, progress))]} onValueChange={handleSeek} max={100} step={0.1} className="flex-1 cursor-pointer" />
       <button onClick={toggleMute} className="shrink-0" style={{ color: theme.colors.text }} data-testid="music-mute-btn">
         {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
       </button>
@@ -637,7 +649,7 @@ const CelebrationExperience = () => {
       {/* Music - starts right after PIN unlock, persists through all phases */}
       {event?.song_url && songEnabled && (
         <div className="fixed top-0 left-0 right-0 z-40 p-3 backdrop-blur" style={{ backgroundColor: theme.colors.background + 'CC' }}>
-          <MusicPlayer songUrl={event.song_url} theme={theme} />
+          <MusicPlayer songUrl={event.song_url} theme={theme} songStart={event.song_start || 0} songDuration={event.song_duration || 60} />
         </div>
       )}
 
@@ -815,6 +827,38 @@ const CelebrationExperience = () => {
                 <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
                   <div className="glass rounded-xl overflow-hidden">
                     <video src={event.video_url} controls className="w-full rounded-xl" style={{ maxHeight: '400px' }} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* End Screen - Try Yours */}
+            <AnimatePresence>
+              {giftsComplete && (
+                <motion.div
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="text-center py-10"
+                >
+                  <div className="rounded-2xl p-8" style={{ background: `linear-gradient(135deg, ${theme.colors.primary}15, ${theme.colors.secondary}10)`, border: `1px solid ${theme.colors.primary}30` }}>
+                    <motion.div
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="text-5xl mb-4"
+                    >✨</motion.div>
+                    <h3 className="font-heading text-2xl mb-2" style={{ color: theme.colors.primary }}>Loved this experience?</h3>
+                    <p className="text-sm mb-6" style={{ color: theme.colors.text + '99' }}>Create your own magical celebration for someone special</p>
+                    <button
+                      onClick={() => navigate('/create')}
+                      className="px-8 py-3 rounded-full font-bold text-sm mb-4 block w-full"
+                      style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }}
+                    >
+                      🎉 Create Yours Free
+                    </button>
+                    <p className="text-xs" style={{ color: theme.colors.text + '50' }}>
+                      Made with ❤️ by <span style={{ color: theme.colors.primary }}>Sudhanshu Kumar</span>
+                    </p>
                   </div>
                 </motion.div>
               )}
