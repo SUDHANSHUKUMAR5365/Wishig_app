@@ -84,37 +84,10 @@ const AdminPage = () => {
             <Sparkles className="w-6 h-6 text-[#D4AF37]" />
             <span className="font-heading text-white text-xl">Admin Dashboard</span>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Maintenance Toggle */}
-            <button
-              onClick={toggleMaintenance}
-              disabled={togglingMaintenance}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                maintenance
-                  ? 'bg-red-500/20 border border-red-500/50 text-red-400'
-                  : 'bg-green-500/20 border border-green-500/50 text-green-400'
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${maintenance ? 'bg-red-400 animate-pulse' : 'bg-green-400'}`} />
-              {togglingMaintenance ? 'Updating...' : maintenance ? 'Maintenance ON' : 'Maintenance OFF'}
-            </button>
-            <Button onClick={handleLogout} variant="outline" className="border-white/10 text-white hover:bg-white/5">
-              <LogOut className="w-4 h-4 mr-2" /> Logout
-            </Button>
-          </div>
+          <Button onClick={handleLogout} variant="outline" className="border-white/10 text-white hover:bg-white/5">
+            <LogOut className="w-4 h-4 mr-2" /> Logout
+          </Button>
         </div>
-
-        {/* Maintenance Banner */}
-        {maintenance && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-            className="mb-6 rounded-xl p-4 flex items-center gap-3 border border-red-500/30 bg-red-500/10">
-            <span className="text-2xl">🔧</span>
-            <div>
-              <p className="text-red-400 font-medium text-sm">Maintenance mode is ON</p>
-              <p className="text-red-400/70 text-xs">Users cannot create new celebrations until you turn this off.</p>
-            </div>
-          </motion.div>
-        )}
 
         {/* Stats */}
         {stats && (
@@ -199,6 +172,31 @@ const AdminPage = () => {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Maintenance Toggle Card */}
+        <div className="glass rounded-2xl p-5 mb-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔧</span>
+            <div>
+              <p className="text-white font-medium text-sm">Maintenance Mode</p>
+              <p className="text-[#94A3B8] text-xs">
+                {maintenance ? 'Users cannot create new celebrations right now.' : 'Everything is live. Users can create celebrations.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={toggleMaintenance}
+            disabled={togglingMaintenance}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              maintenance
+                ? 'bg-red-500/20 border border-red-500/50 text-red-400'
+                : 'bg-green-500/20 border border-green-500/50 text-green-400'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${maintenance ? 'bg-red-400 animate-pulse' : 'bg-green-400'}`} />
+            {togglingMaintenance ? 'Updating...' : maintenance ? 'Turn OFF' : 'Turn ON'}
+          </button>
         </div>
 
         {/* All Events */}
