@@ -360,6 +360,20 @@ async def root():
 async def get_themes():
     return THEMES
 
+# --- Maintenance ---
+@api_router.get("/admin/maintenance")
+async def get_maintenance():
+    doc = await db.settings.find_one({"key": "maintenance"}, {"_id": 0})
+    return {"maintenance": doc["value"] if doc else False}
+
+@api_router.post("/admin/maintenance")
+async def set_maintenance(body: dict, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    value = bool(body.get("maintenance", False))
+    await db.settings.update_one({"key": "maintenance"}, {"$set": {"key": "maintenance", "value": value}}, upsert=True)
+    return {"maintenance": value}
+
 # --- Upload ---
 @api_router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(file: UploadFile = File(...), folder: str = "uploads"):
@@ -375,6 +389,9 @@ async def upload_file(file: UploadFile = File(...), folder: str = "uploads"):
 # --- Event CRUD ---
 @api_router.post("/events", response_model=Event)
 async def create_event(input: EventCreate, current_user=Depends(get_current_user)):
+    doc = await db.settings.find_one({"key": "maintenance"}, {"_id": 0})
+    if doc and doc.get("value"):
+        raise HTTPException(status_code=503, detail="maintenance")
     event = Event(**input.model_dump(), user_id=current_user["id"])
     doc = event.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()

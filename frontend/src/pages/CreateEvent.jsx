@@ -247,6 +247,7 @@ const CreateEvent = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
   const [createdEventId, setCreatedEventId] = useState(null);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiTone, setAiTone] = useState('heartfelt');
   
@@ -434,7 +435,11 @@ const CreateEvent = () => {
       setCreatedEventId(response.data.id);
     } catch (error) {
       console.error('Error creating event:', error);
-      toast.error('Failed to create celebration');
+      if (error.response?.status === 503 && error.response?.data?.detail === 'maintenance') {
+        setMaintenanceMode(true);
+      } else {
+        toast.error('Failed to create celebration');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -886,6 +891,19 @@ const CreateEvent = () => {
     navigator.clipboard.writeText(celebrationUrl);
     toast.success('Link copied!');
   };
+
+  if (maintenanceMode) return (
+    <div className="min-h-screen bg-[#0A0F1F] flex items-center justify-center px-4">
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="glass rounded-2xl p-10 max-w-sm w-full text-center">
+        <div className="text-6xl mb-6">🔧</div>
+        <h2 className="font-heading text-2xl text-white mb-3">We'll be back soon</h2>
+        <p className="text-[#94A3B8] text-sm mb-6">The app is currently under maintenance. Your uploads are safe — please try again in a little while.</p>
+        <Button onClick={() => { setMaintenanceMode(false); setCurrentStep(8); }} variant="outline" className="border-white/10 text-white hover:bg-white/5 w-full">
+          Go Back
+        </Button>
+      </motion.div>
+    </div>
+  );
 
   if (createdEventId) return (
     <div className="min-h-screen bg-[#0A0F1F] flex items-center justify-center px-4">
