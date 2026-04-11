@@ -471,10 +471,12 @@ const HeartsCanvas = ({ color }) => {
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    const hearts = Array.from({ length: 20 }, () => ({
+    // Fewer hearts on mobile for performance
+    const count = window.innerWidth < 768 ? 8 : 16;
+    const hearts = Array.from({ length: count }, () => ({
       x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-      size: 8 + Math.random() * 12, speedY: 0.5 + Math.random() * 1,
-      opacity: 0.1 + Math.random() * 0.3,
+      size: 8 + Math.random() * 10, speedY: 0.4 + Math.random() * 0.8,
+      opacity: 0.08 + Math.random() * 0.2,
     }));
     let raf;
     const draw = () => {
@@ -502,20 +504,54 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [volume, setVolume] = useState(0);
   const clipEnd = songStart + songDuration;
+  const fadeRef = useRef(null);
+
+  // Fade in over 2s
+  const fadeIn = () => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = 0;
+    let v = 0;
+    clearInterval(fadeRef.current);
+    fadeRef.current = setInterval(() => {
+      v = Math.min(1, v + 0.05);
+      if (audioRef.current) audioRef.current.volume = v;
+      setVolume(v);
+      if (v >= 1) clearInterval(fadeRef.current);
+    }, 100);
+  };
+
+  // Fade out over 1.5s then pause
+  const fadeOut = (cb) => {
+    if (!audioRef.current) return;
+    let v = audioRef.current.volume;
+    clearInterval(fadeRef.current);
+    fadeRef.current = setInterval(() => {
+      v = Math.max(0, v - 0.07);
+      if (audioRef.current) audioRef.current.volume = v;
+      setVolume(v);
+      if (v <= 0) { clearInterval(fadeRef.current); cb && cb(); }
+    }, 100);
+  };
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.loop = false;
-      audioRef.current.currentTime = songStart;
-      audioRef.current.play().catch(() => {});
-      setIsPlaying(true);
-    }
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = songStart;
+    audio.volume = 0;
+    audio.play().then(fadeIn).catch(() => {});
+    setIsPlaying(true);
+    return () => { clearInterval(fadeRef.current); };
   }, [songUrl]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
-    if (isPlaying) { audioRef.current.pause(); } else { audioRef.current.play(); }
+    if (isPlaying) {
+      fadeOut(() => audioRef.current?.pause());
+    } else {
+      audioRef.current.play().then(fadeIn).catch(() => {});
+    }
     setIsPlaying(!isPlaying);
   };
 
@@ -526,10 +562,14 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
     const ct = audioRef.current.currentTime;
-    // Loop back to start when clip ends
-    if (ct >= clipEnd) {
-      audioRef.current.currentTime = songStart;
-      audioRef.current.play().catch(() => {});
+    if (ct >= clipEnd - 1.5) {
+      // Fade out near end, then loop
+      fadeOut(() => {
+        if (audioRef.current) {
+          audioRef.current.currentTime = songStart;
+          audioRef.current.play().then(fadeIn).catch(() => {});
+        }
+      });
     }
     setProgress(((ct - songStart) / songDuration) * 100 || 0);
   };
@@ -593,8 +633,20 @@ const CelebrationExperience = () => {
   const [gameComplete, setGameComplete] = useState(false);
   const [giftsComplete, setGiftsComplete] = useState(false);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
+  const [easterEggDismissed, setEasterEggDismissed] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const tapTimeoutRef = useRef(null);
+
+  // Auto-show easter egg after gifts complete (with delay for love letter to appear)
+  useEffect(() => {
+    if (giftsComplete && event?.easter_egg_message && !easterEggDismissed) {
+      const t = setTimeout(() => {
+        setShowEasterEgg(true);
+        confetti({ particleCount: 200, spread: 180, colors: ['#D4AF37', '#FFD700', '#FFF8DC'] });
+      }, event?.special_note ? 4000 : 1000);
+      return () => clearTimeout(t);
+    }
+  }, [giftsComplete, event, easterEggDismissed]);
 
   const theme = event ? getTheme(event.theme) : getTheme('royal_gold');
 
@@ -727,14 +779,14 @@ const CelebrationExperience = () => {
           className="fixed inset-0 flex flex-col items-center justify-center z-40"
           style={{ backgroundColor: theme.colors.background }}
         >
-          {/* Floating particles */}
+          {/* Floating particles - fewer on mobile */}
           <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            {[...Array(15)].map((_, i) => (
+            {[...Array(window.innerWidth < 768 ? 6 : 12)].map((_, i) => (
               <motion.div key={i} className="absolute w-2 h-2 rounded-full"
-                style={{ backgroundColor: theme.colors.primary }}
+                style={{ backgroundColor: theme.colors.primary, willChange: 'transform, opacity' }}
                 initial={{ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, opacity: 0.3 }}
-                animate={{ y: [null, Math.random() * -300], opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 5 + Math.random() * 5, repeat: Infinity, repeatType: 'reverse' }}
+                animate={{ y: [null, Math.random() * -200], opacity: [0.3, 0.6, 0.3] }}
+                transition={{ duration: 6 + Math.random() * 4, repeat: Infinity, repeatType: 'reverse' }}
               />
             ))}
           </div>
@@ -756,14 +808,6 @@ const CelebrationExperience = () => {
           </motion.h2>
 
           <InteractiveCake theme={theme} candlesBlown={candlesBlown} onBlowComplete={handleBlowComplete} />
-
-          {/* Secret message hint */}
-          {event?.easter_egg_message && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} transition={{ delay: 2 }}
-              className="mt-8 text-white/40 text-xs text-center">
-              💡 Tap the name 3 times for a secret message
-            </motion.p>
-          )}
         </motion.div>
       )}
 
@@ -777,12 +821,9 @@ const CelebrationExperience = () => {
           <div className={`max-w-2xl mx-auto px-4 pb-24 space-y-12 relative z-10 ${event?.song_url && songEnabled ? 'pt-20' : 'pt-8'}`}>
 
             {/* Greeting */}
-            <div className="text-center pt-4" onClick={handleTitleTap}>
+            <div className="text-center pt-4">
               <h1 className="font-heading text-4xl mb-2" style={{ color: theme.colors.primary }}>{getGreeting()}</h1>
               <h2 className="font-heading text-3xl" style={{ color: theme.colors.text || '#fff' }}>{event?.person_name}!</h2>
-              {event?.easter_egg_message && (
-                <p className="mt-3 text-xs opacity-40" style={{ color: theme.colors.text || '#fff' }}>💡 Tap the name 3 times for a secret message</p>
-              )}
             </div>
 
             {/* Flip Cards */}
@@ -884,7 +925,7 @@ const CelebrationExperience = () => {
               <Sparkles className="w-16 h-16 mx-auto mb-4" style={{ color: theme.colors.primary }} />
               <h3 className="font-heading text-2xl mb-4" style={{ color: theme.colors.primary }}>Secret Message! 🤫</h3>
               <p className="text-lg" style={{ color: theme.colors.text }}>{event?.easter_egg_message}</p>
-              <Button onClick={() => setShowEasterEgg(false)} className="mt-6" style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }} data-testid="close-easter-egg-btn">
+              <Button onClick={() => { setShowEasterEgg(false); setEasterEggDismissed(true); }} className="mt-6" style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }} data-testid="close-easter-egg-btn">
                 Close
               </Button>
             </motion.div>

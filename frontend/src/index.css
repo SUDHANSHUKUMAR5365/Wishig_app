@@ -209,6 +209,32 @@ body {
   50% { transform: rotate(3deg); }
 }
 
+/* Mobile performance optimizations */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .glass {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  /* Promote animated elements to GPU layer */
+  .float, .balloon-float {
+    will-change: transform;
+  }
+}
+
+/* Smooth touch scrolling */
+body {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent layout shift on mobile */
+img, video {
+  max-width: 100%;
+  height: auto;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

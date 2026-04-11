@@ -249,6 +249,7 @@ const CreateEvent = () => {
   const [createdEventId, setCreatedEventId] = useState(null);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [isGeneratingFlipAI, setIsGeneratingFlipAI] = useState(false);
   const [aiTone, setAiTone] = useState('heartfelt');
   
   const photoInputRef = useRef(null);
@@ -298,6 +299,28 @@ const CreateEvent = () => {
       toast.error('AI generation failed. Add your GEMINI_API_KEY to backend .env');
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const generateAIFlipCards = async () => {
+    if (!formData.person_name) { toast.error('Enter the person\'s name first'); return; }
+    setIsGeneratingFlipAI(true);
+    try {
+      const res = await axios.post(`${API}/ai/generate-message`, {
+        person_name: formData.person_name,
+        occasion_type: formData.occasion_type,
+        custom_occasion: formData.custom_occasion,
+        tone: 'flipcards',
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      // Parse 6 lines from response
+      const lines = res.data.message.split('\n').map(l => l.replace(/^\d+[\.\)\-]\s*/, '').trim()).filter(Boolean).slice(0, 6);
+      while (lines.length < 6) lines.push('');
+      setFormData(prev => ({ ...prev, flip_cards: lines }));
+      toast.success('Flip cards generated!');
+    } catch {
+      toast.error('AI generation failed');
+    } finally {
+      setIsGeneratingFlipAI(false);
     }
   };
 
@@ -757,7 +780,17 @@ const CreateEvent = () => {
       case 6:
         return (
           <div className="space-y-4">
-            <p className="text-[#94A3B8] text-sm">Write 6 reasons — receiver flips each card one by one 💝</p>
+            <div className="flex items-center justify-between">
+              <p className="text-[#94A3B8] text-sm">Write 6 reasons — receiver flips each card 💝</p>
+              <Button
+                onClick={generateAIFlipCards}
+                disabled={isGeneratingFlipAI}
+                size="sm"
+                className="bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#D4AF37] border border-[#D4AF37]/30"
+              >
+                {isGeneratingFlipAI ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Wand2 className="w-3 h-3 mr-1" /> AI Fill</>}
+              </Button>
+            </div>
             {formData.flip_cards.map((card, i) => (
               <div key={i}>
                 <Label className="text-white mb-2 block text-sm">Card {i + 1}</Label>

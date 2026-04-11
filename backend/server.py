@@ -517,7 +517,10 @@ async def generate_message(body: AIMessageRequest, current_user=Depends(get_curr
         raise HTTPException(status_code=503, detail="AI not configured")
     
     occasion = body.custom_occasion if body.occasion_type == 'custom' and body.custom_occasion else body.occasion_type
-    prompt = f"Write a {body.tone} {occasion} message for {body.person_name}. Keep it under 100 words, personal and warm. No quotes, just the message."
+    if body.tone == 'flipcards':
+        prompt = f"Write exactly 6 short, heartfelt reasons why {body.person_name} is special for a {occasion} celebration. Each reason on a new line, numbered 1-6. Max 10 words each. Warm and personal."
+    else:
+        prompt = f"Write a {body.tone} {occasion} message for {body.person_name}. Keep it under 100 words, personal and warm. No quotes, just the message."
     
     try:
         resp = http_requests.post(
