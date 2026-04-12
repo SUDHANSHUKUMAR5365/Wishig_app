@@ -295,8 +295,8 @@ const CreateEvent = () => {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setFormData(prev => ({ ...prev, special_note: res.data.message }));
       toast.success('Message generated!');
-    } catch {
-      toast.error('AI generation failed. Add your GEMINI_API_KEY to backend .env');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'AI generation failed');
     } finally {
       setIsGeneratingAI(false);
     }
@@ -312,13 +312,12 @@ const CreateEvent = () => {
         custom_occasion: formData.custom_occasion,
         tone: 'flipcards',
       }, { headers: { Authorization: `Bearer ${token}` } });
-      // Parse 6 lines from response
       const lines = res.data.message.split('\n').map(l => l.replace(/^\d+[\.\)\-]\s*/, '').trim()).filter(Boolean).slice(0, 6);
       while (lines.length < 6) lines.push('');
       setFormData(prev => ({ ...prev, flip_cards: lines }));
       toast.success('Flip cards generated!');
-    } catch {
-      toast.error('AI generation failed');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'AI generation failed');
     } finally {
       setIsGeneratingFlipAI(false);
     }

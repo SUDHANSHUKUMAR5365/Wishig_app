@@ -513,7 +513,8 @@ class AIMessageRequest(BaseModel):
 
 @api_router.post("/ai/generate-message")
 async def generate_message(body: AIMessageRequest, current_user=Depends(get_current_user)):
-    if not GEMINI_API_KEY:
+    key = os.environ.get('GEMINI_API_KEY', GEMINI_API_KEY)
+    if not key:
         raise HTTPException(status_code=503, detail="AI not configured")
     
     occasion = body.custom_occasion if body.occasion_type == 'custom' and body.custom_occasion else body.occasion_type
@@ -524,16 +525,17 @@ async def generate_message(body: AIMessageRequest, current_user=Depends(get_curr
     
     try:
         resp = http_requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}",
             json={"contents": [{"parts": [{"text": prompt}]}]},
-            timeout=15
+            timeout=20
         )
+        resp.raise_for_status()
         data = resp.json()
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         return {"message": text.strip()}
     except Exception as e:
-        logger.error(f"AI generate error: {e}")
-        raise HTTPException(status_code=500, detail="AI generation failed")
+        logger.error(f"AI generate error: {e} | response: {resp.text if 'resp' in dir() else 'no response'}")
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
 
 app.include_router(api_router)
 
