@@ -28,10 +28,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import json
 
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
 # MongoDB
 mongo_url = os.environ['MONGO_URL']
