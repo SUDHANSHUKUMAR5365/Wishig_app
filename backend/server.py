@@ -525,7 +525,7 @@ async def generate_message(body: AIMessageRequest, current_user=Depends(get_curr
     
     try:
         resp = http_requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={key}",
             json={"contents": [{"parts": [{"text": prompt}]}]},
             timeout=20
         )
