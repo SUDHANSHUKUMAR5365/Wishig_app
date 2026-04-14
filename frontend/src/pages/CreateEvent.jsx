@@ -324,14 +324,29 @@ const CreateEvent = () => {
 
   const uploadFile = useCallback(async (file, folder) => {
     if (!ALLOWED_FOLDERS.includes(folder)) throw new Error('Invalid upload folder');
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-    const response = await axios.post(`${API}/upload`, formDataUpload, {
+
+    // Get signed signature from backend
+    const { data: sig } = await axios.get(`${API}/upload/signature`, {
       params: { folder },
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { Authorization: `Bearer ${token}` }
     });
-    return response.data.url;
-  }, []);
+
+    // Upload directly to Cloudinary — no backend hop
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('api_key', sig.api_key);
+    fd.append('timestamp', sig.timestamp);
+    fd.append('signature', sig.signature);
+    fd.append('folder', sig.folder);
+
+    const resourceType = file.type.startsWith('video') || file.type.startsWith('audio') ? 'video' : 'image';
+    const { data } = await axios.post(
+      `https://api.cloudinary.com/v1_1/${sig.cloud_name}/${resourceType}/upload`,
+      fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return data.secure_url;
+  }, [token]);
 
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);

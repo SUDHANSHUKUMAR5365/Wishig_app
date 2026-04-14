@@ -390,6 +390,25 @@ async def set_maintenance(body: dict, current_user=Depends(get_current_user)):
     await db.settings.update_one({"key": "maintenance"}, {"$set": {"key": "maintenance", "value": value}}, upsert=True)
     return {"maintenance": value}
 
+# --- Upload Signature (for direct browser upload) ---
+@api_router.get("/upload/signature")
+async def upload_signature(folder: str = "uploads", current_user=Depends(get_current_user)):
+    import hashlib, time
+    ALLOWED = ['photos', 'videos', 'voice', 'songs']
+    if folder not in ALLOWED:
+        raise HTTPException(status_code=400, detail="Invalid folder")
+    timestamp = int(time.time())
+    cloud_folder = f"celebration-qr/{folder}"
+    params = f"folder={cloud_folder}&timestamp={timestamp}"
+    signature = hashlib.sha1(f"{params}{os.environ.get('CLOUDINARY_API_SECRET')}".encode()).hexdigest()
+    return {
+        "signature": signature,
+        "timestamp": timestamp,
+        "folder": cloud_folder,
+        "api_key": os.environ.get('CLOUDINARY_API_KEY'),
+        "cloud_name": os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    }
+
 # --- Upload ---
 @api_router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(file: UploadFile = File(...), folder: str = "uploads"):
