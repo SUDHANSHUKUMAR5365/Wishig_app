@@ -41,85 +41,152 @@ const occasionTypes = [
 
 const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
-// Instagram-style song clip picker
+// Fast canvas-based song clip picker
 const SongClipper = ({ songUrl, songStart, songDuration, onChange }) => {
   const audioRef = useRef(null);
+  const canvasRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [totalDuration, setTotalDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(songStart);
-  const [dragging, setDragging] = useState(null); // 'start' | 'end' | 'window'
-  const trackRef = useRef(null);
+  const isDragging = useRef(false);
   const dragStartX = useRef(0);
-  const dragStartVal = useRef(0);
-  const CLIP_DURATION = 60;
+  const dragStartSec = useRef(0);
+  const currentStartRef = useRef(songStart);
+  const rafRef = useRef(null);
+  const CLIP = 60;
 
-  const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+  // Draw canvas waveform + clip window
+  const draw = useCallback((start, total, playing, currentTime) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !total) return;
+    const W = canvas.width, H = canvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    const BAR_COUNT = 80;
+    const BAR_W = W / BAR_COUNT - 1;
+    const startPx = (start / total) * W;
+    const endPx = ((start + CLIP) / total) * W;
+
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const x = i * (W / BAR_COUNT);
+      const barSec = (i / BAR_COUNT) * total;
+      const inClip = barSec >= start && barSec < start + CLIP;
+      const h = (0.2 + Math.abs(Math.sin(i * 0.9)) * 0.8) * H * 0.85;
+      ctx.fillStyle = inClip ? '#D4AF37' : 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.roundRect(x, (H - h) / 2, BAR_W, h, 2);
+      ctx.fill();
+    }
+
+    // Clip window border
+    ctx.strokeStyle = '#D4AF37';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(startPx, 1, endPx - startPx, H - 2, 6);
+    ctx.stroke();
+
+    // Handles
+    ctx.fillStyle = '#D4AF37';
+    ctx.beginPath(); ctx.roundRect(startPx, 0, 12, H, [6, 0, 0, 6]); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(endPx - 12, 0, 12, H, [0, 6, 6, 0]); ctx.fill();
+
+    // Playhead
+    if (playing && currentTime >= start && currentTime <= start + CLIP) {
+      const px = ((currentTime - start) / CLIP) * (endPx - startPx) + startPx;
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath(); ctx.roundRect(px - 1, 0, 2, H, 1); ctx.fill();
+    }
+  }, []);
+
+  // Resize canvas to match container
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ro = new ResizeObserver(() => {
+      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      canvas.getContext('2d').scale(window.devicePixelRatio, window.devicePixelRatio);
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      draw(currentStartRef.current, totalDuration, isPlaying, audioRef.current?.currentTime || 0);
+    });
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [totalDuration, isPlaying, draw]);
+
+  // Load audio metadata
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onLoaded = () => {
-      setTotalDuration(audio.duration);
-      audio.currentTime = songStart;
-    };
+    const onLoaded = () => setTotalDuration(audio.duration);
     audio.addEventListener('loadedmetadata', onLoaded);
     if (audio.readyState >= 1) onLoaded();
     return () => audio.removeEventListener('loadedmetadata', onLoaded);
   }, [songUrl]);
 
+  // Animation loop for playhead
   useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const onTime = () => {
-      setCurrentTime(audio.currentTime);
-      // loop within clip
-      if (audio.currentTime >= songStart + CLIP_DURATION) {
-        audio.currentTime = songStart;
+    if (!isPlaying) { cancelAnimationFrame(rafRef.current); return; }
+    const loop = () => {
+      const audio = audioRef.current;
+      if (audio) {
+        if (audio.currentTime >= currentStartRef.current + CLIP) audio.currentTime = currentStartRef.current;
+        draw(currentStartRef.current, totalDuration, true, audio.currentTime);
       }
+      rafRef.current = requestAnimationFrame(loop);
     };
-    audio.addEventListener('timeupdate', onTime);
-    return () => audio.removeEventListener('timeupdate', onTime);
-  }, [songStart]);
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [isPlaying, totalDuration, draw]);
+
+  // Redraw when start changes (from outside drag)
+  useEffect(() => {
+    currentStartRef.current = songStart;
+    if (!isPlaying) draw(songStart, totalDuration, false, 0);
+  }, [songStart, totalDuration, isPlaying, draw]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.currentTime = songStart;
-      audio.play().catch(() => {});
-    }
-    setIsPlaying(!isPlaying);
+    if (isPlaying) { audio.pause(); setIsPlaying(false); }
+    else { audio.currentTime = currentStartRef.current; audio.play().catch(() => {}); setIsPlaying(true); }
   };
 
-  // Convert pixel offset on track to seconds
-  const pxToSec = (px) => {
-    if (!trackRef.current || !totalDuration) return 0;
-    return (px / trackRef.current.offsetWidth) * totalDuration;
+  const getSecFromEvent = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return ((clientX - rect.left) / rect.width) * totalDuration;
   };
 
-  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-
-  const startDrag = (e, type) => {
+  const onPointerDown = (e) => {
+    if (!totalDuration) return;
     e.preventDefault();
-    setDragging(type);
+    isDragging.current = true;
     dragStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
-    dragStartVal.current = songStart;
+    dragStartSec.current = currentStartRef.current;
   };
 
   useEffect(() => {
-    if (!dragging) return;
     const onMove = (e) => {
+      if (!isDragging.current || !totalDuration) return;
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const dx = clientX - dragStartX.current;
-      const dSec = pxToSec(dx);
-      let newStart = clamp(dragStartVal.current + dSec, 0, totalDuration - CLIP_DURATION);
-      newStart = Math.round(newStart);
-      onChange(newStart, CLIP_DURATION);
+      const canvas = canvasRef.current;
+      const dPx = clientX - dragStartX.current;
+      const dSec = (dPx / canvas.offsetWidth) * totalDuration;
+      const newStart = clamp(dragStartSec.current + dSec, 0, totalDuration - CLIP);
+      currentStartRef.current = newStart;
+      draw(newStart, totalDuration, isPlaying, audioRef.current?.currentTime || 0);
       if (audioRef.current) audioRef.current.currentTime = newStart;
     };
-    const onUp = () => setDragging(null);
+    const onUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      onChange(Math.round(currentStartRef.current), CLIP);
+    };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     window.addEventListener('touchmove', onMove, { passive: false });
@@ -130,7 +197,7 @@ const SongClipper = ({ songUrl, songStart, songDuration, onChange }) => {
       window.removeEventListener('touchmove', onMove);
       window.removeEventListener('touchend', onUp);
     };
-  }, [dragging, totalDuration, songStart]);
+  }, [totalDuration, isPlaying, onChange, draw]);
 
   if (!totalDuration) return (
     <div className="flex items-center justify-center py-6">
@@ -139,103 +206,33 @@ const SongClipper = ({ songUrl, songStart, songDuration, onChange }) => {
     </div>
   );
 
-  const startPct = (songStart / totalDuration) * 100;
-  const widthPct = (CLIP_DURATION / totalDuration) * 100;
-  const playheadPct = ((currentTime - songStart) / CLIP_DURATION) * 100;
-
-  // Generate fake waveform bars
-  const bars = Array.from({ length: 60 }, (_, i) => 0.2 + Math.abs(Math.sin(i * 0.7 + songStart * 0.1)) * 0.8);
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <audio ref={audioRef} src={songUrl} preload="metadata" />
 
-      {/* Play button + time */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={togglePlay}
+        <button onClick={togglePlay}
           className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ backgroundColor: '#D4AF37', color: '#0A0F1F' }}
-        >
+          style={{ backgroundColor: '#D4AF37', color: '#0A0F1F' }}>
           {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
         </button>
-        <div className="flex-1">
-          <p className="text-white text-sm font-medium">Preview clip</p>
-          <p className="text-[#94A3B8] text-xs">
-            {fmtTime(songStart)} → {fmtTime(Math.min(songStart + CLIP_DURATION, totalDuration))} &nbsp;·&nbsp; {fmtTime(totalDuration)} total
+        <div>
+          <p className="text-white text-sm font-medium">
+            {fmt(songStart)} → {fmt(Math.min(songStart + CLIP, totalDuration))}
           </p>
+          <p className="text-[#94A3B8] text-xs">Total: {fmt(totalDuration)}</p>
         </div>
       </div>
 
-      {/* Waveform track */}
-      <div className="relative select-none" style={{ touchAction: 'none' }}>
-        {/* Waveform bars */}
-        <div
-          ref={trackRef}
-          className="relative h-16 rounded-xl overflow-hidden flex items-center gap-px px-1"
-          style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-        >
-          {bars.map((h, i) => {
-            const barSec = (i / bars.length) * totalDuration;
-            const inClip = barSec >= songStart && barSec < songStart + CLIP_DURATION;
-            return (
-              <div
-                key={i}
-                className="flex-1 rounded-full transition-colors"
-                style={{
-                  height: `${h * 100}%`,
-                  backgroundColor: inClip ? '#D4AF37' : 'rgba(255,255,255,0.15)',
-                }}
-              />
-            );
-          })}
+      <canvas
+        ref={canvasRef}
+        className="w-full rounded-xl cursor-grab active:cursor-grabbing"
+        style={{ height: 64, touchAction: 'none', userSelect: 'none' }}
+        onMouseDown={onPointerDown}
+        onTouchStart={onPointerDown}
+      />
 
-          {/* Clip window overlay */}
-          <div
-            className="absolute top-0 bottom-0 rounded-xl border-2 cursor-grab active:cursor-grabbing"
-            style={{
-              left: `${startPct}%`,
-              width: `${widthPct}%`,
-              borderColor: '#D4AF37',
-              backgroundColor: 'rgba(212,175,55,0.08)',
-            }}
-            onMouseDown={(e) => startDrag(e, 'window')}
-            onTouchStart={(e) => startDrag(e, 'window')}
-          >
-            {/* Left handle */}
-            <div className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize"
-              style={{ backgroundColor: '#D4AF37', borderRadius: '8px 0 0 8px' }}>
-              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded" />
-              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded ml-0.5" />
-            </div>
-            {/* Right handle */}
-            <div className="absolute right-0 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize"
-              style={{ backgroundColor: '#D4AF37', borderRadius: '0 8px 8px 0' }}>
-              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded" />
-              <div className="w-0.5 h-5 bg-[#0A0F1F] rounded ml-0.5" />
-            </div>
-            {/* Playhead */}
-            {isPlaying && (
-              <div
-                className="absolute top-0 bottom-0 w-0.5 bg-white rounded"
-                style={{ left: `${clamp(playheadPct, 0, 100)}%`, transition: 'left 0.1s linear' }}
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Time labels */}
-        <div className="flex justify-between mt-1 px-1">
-          <span className="text-[#94A3B8] text-xs">{fmtTime(0)}</span>
-          <span className="text-[#94A3B8] text-xs">{fmtTime(totalDuration)}</span>
-        </div>
-      </div>
-
-      <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg p-3 text-center">
-        <p className="text-[#D4AF37] text-xs">
-          🎵 Clip: <strong>{fmtTime(songStart)}</strong> → <strong>{fmtTime(Math.min(songStart + CLIP_DURATION, totalDuration))}</strong> &nbsp;·&nbsp; Drag the golden window to reposition
-        </p>
-      </div>
+      <p className="text-[#94A3B8] text-xs text-center">Drag the golden window to pick your 60s clip</p>
     </div>
   );
 };
