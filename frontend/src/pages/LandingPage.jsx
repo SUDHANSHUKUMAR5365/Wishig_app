@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Gift, Heart, Camera, QrCode, Cake, Music, PartyPopper, LogIn, UserPlus, LayoutDashboard, LogOut } from 'lucide-react';
+import { Sparkles, Gift, Heart, Camera, QrCode, Cake, Music, PartyPopper, LogIn, UserPlus, LayoutDashboard, LogOut, Lock, Wand2, FlipHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 
@@ -11,12 +11,15 @@ const LandingPage = () => {
   const [isHovered, setIsHovered] = useState(false);
 
   const features = [
-    { icon: Cake, title: 'Interactive Cake', desc: 'Blow out candles with a tap' },
-    { icon: Camera, title: 'Photo Gallery', desc: 'Beautiful slideshow memories' },
-    { icon: Music, title: 'Music Player', desc: 'Add your special song' },
-    { icon: Gift, title: 'Mini Games', desc: 'Pop balloons & open gifts' },
-    { icon: Heart, title: '12 Themes', desc: 'Perfect for any occasion' },
-    { icon: QrCode, title: 'QR Sharing', desc: 'Share the magic instantly' },
+    { icon: Cake, title: 'Interactive Cake', desc: 'Blow candles & make a wish' },
+    { icon: Camera, title: 'Photo Gallery', desc: 'Polaroid-style reveal after balloon game' },
+    { icon: Music, title: 'Music Player', desc: 'Pick your 60s clip with waveform editor' },
+    { icon: Gift, title: 'Balloon Pop Game', desc: 'Pop all 15 to unlock photos' },
+    { icon: Heart, title: '12 Themes', desc: 'Boys, girls & anniversary themes' },
+    { icon: QrCode, title: 'QR Sharing', desc: 'WhatsApp, copy link or download QR' },
+    { icon: Lock, title: 'PIN Lock', desc: 'Protect with a 4-digit secret PIN' },
+    { icon: Wand2, title: 'AI Write', desc: 'Generate messages & flip cards with AI' },
+    { icon: FlipHorizontal, title: 'Flip Cards', desc: '6 reasons why they are special' },
   ];
 
   return (
@@ -108,8 +111,8 @@ const LandingPage = () => {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="text-[#94A3B8] text-base sm:text-lg text-center max-w-xl mb-10 px-4"
         >
-          Transform birthdays, anniversaries & special moments into 
-          cinematic digital experiences. Share via QR code.
+          Create cinematic birthday, anniversary & special occasion experiences.
+          Add photos, music, games & heartfelt messages — share via QR code.
         </motion.p>
 
         {/* CTA Buttons */}
@@ -199,9 +202,9 @@ const LandingPage = () => {
 
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           {[
-            { num: '01', title: 'Create', desc: 'Add photos, music & messages' },
-            { num: '02', title: 'Generate', desc: 'Get your unique QR code' },
-            { num: '03', title: 'Share', desc: 'Send the magic to loved ones' },
+            { num: '01', title: 'Sign Up & Create', desc: 'Register, fill 8 easy steps — name, photos, music, message, theme & PIN' },
+            { num: '02', title: 'Get QR Code', desc: 'Your unique QR is instantly generated and ready to share' },
+            { num: '03', title: 'They Scan & Celebrate', desc: 'Receiver gets a cinematic surprise — cake, games, photos & your message' },
           ].map((step, index) => (
             <motion.div
               key={step.num}
@@ -234,7 +237,7 @@ const LandingPage = () => {
             Ready to Create Something Special?
           </h2>
           <p className="text-[#94A3B8] mb-8">
-            Make your loved ones feel extraordinary with a personalized celebration experience.
+            Sign up free and make your loved ones feel extraordinary with a personalized cinematic celebration.
           </p>
           <Button
             data-testid="footer-create-btn"
