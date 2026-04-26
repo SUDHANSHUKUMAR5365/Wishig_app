@@ -424,9 +424,11 @@ async def upload_file(file: UploadFile = File(...), folder: str = "uploads"):
 # --- Event CRUD ---
 @api_router.post("/events", response_model=Event)
 async def create_event(input: EventCreate, current_user=Depends(get_current_user)):
-    doc = await db.settings.find_one({"key": "maintenance"}, {"_id": 0})
-    if doc and doc.get("value"):
-        raise HTTPException(status_code=503, detail="maintenance")
+    # Admin can always create; only block regular users during maintenance
+    if current_user["role"] != "admin":
+        doc = await db.settings.find_one({"key": "maintenance"}, {"_id": 0})
+        if doc and doc.get("value"):
+            raise HTTPException(status_code=503, detail="maintenance")
     event = Event(**input.model_dump(), user_id=current_user["id"])
     doc = event.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()

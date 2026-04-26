@@ -825,22 +825,23 @@ const CreateEvent = () => {
           <div className="space-y-6">
             <div>
               <Label className="text-white mb-3 block">Upload Song</Label>
+              {/* Separate upload button from clip picker */}
               <div
                 onClick={() => songInputRef.current?.click()}
-                className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-[#D4AF37]/50 transition-colors"
+                className="border-2 border-dashed border-white/20 rounded-xl p-6 text-center cursor-pointer hover:border-[#D4AF37]/50 transition-colors"
               >
                 {uploadProgress.song === 'uploading' ? (
-                  <Loader2 className="w-12 h-12 text-[#D4AF37] mx-auto animate-spin" />
+                  <Loader2 className="w-10 h-10 text-[#D4AF37] mx-auto animate-spin" />
                 ) : formData.song_url ? (
-                  <div className="text-[#D4AF37]">
-                    <Check className="w-12 h-12 mx-auto mb-2" />
-                    <p>Song uploaded! <span className="text-[#94A3B8] text-sm">Click to replace</span></p>
+                  <div className="flex items-center justify-center gap-3 text-[#D4AF37]">
+                    <Check className="w-6 h-6" />
+                    <span className="text-sm">Song uploaded — <span className="text-[#94A3B8]">tap to replace</span></span>
                   </div>
                 ) : (
                   <>
-                    <Music className="w-12 h-12 text-[#94A3B8] mx-auto mb-3" />
-                    <p className="text-white mb-1">Click to upload a song</p>
-                    <p className="text-[#94A3B8] text-sm">MP3, WAV up to 50MB</p>
+                    <Music className="w-10 h-10 text-[#94A3B8] mx-auto mb-2" />
+                    <p className="text-white text-sm mb-1">Tap to upload a song</p>
+                    <p className="text-[#94A3B8] text-xs">MP3, WAV up to 50MB</p>
                   </>
                 )}
               </div>
@@ -854,10 +855,11 @@ const CreateEvent = () => {
               />
             </div>
 
+            {/* Clip picker is completely outside the upload div */}
             {formData.song_url && (
               <div className="border border-white/10 rounded-xl p-4">
-                <Label className="text-white block mb-4">🎵 Pick your clip</Label>
-                <p className="text-[#94A3B8] text-xs mb-4">Drag the golden window to choose which 60 seconds plays on repeat.</p>
+                <Label className="text-white block mb-1">🎵 Pick your 60s clip</Label>
+                <p className="text-[#94A3B8] text-xs mb-4">Drag the golden window to choose which part plays.</p>
                 <SongClipper
                   songUrl={formData.song_url}
                   songStart={formData.song_start}
