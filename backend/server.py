@@ -530,7 +530,36 @@ class AIMessageRequest(BaseModel):
     person_name: str
     occasion_type: str
     custom_occasion: Optional[str] = None
-    tone: str = "heartfelt"  # heartfelt, funny, poetic, short
+    tone: str = "heartfelt"
+
+# --- Feedback ---
+@api_router.post("/feedback")
+async def submit_feedback(body: dict):
+    event_id = body.get("event_id", "")
+    stars = body.get("stars")
+    if not event_id or not stars or not isinstance(stars, int) or stars < 1 or stars > 5:
+        raise HTTPException(status_code=400, detail="event_id and stars (1-5) are required")
+    feedback = {
+        "id": str(uuid.uuid4()),
+        "event_id": event_id,
+        "stars": stars,
+        "message": body.get("message", "").strip()[:500],
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.feedback.insert_one(feedback)
+    return {"message": "Thank you for your feedback!"}
+
+@api_router.get("/admin/feedback")
+async def get_feedback(current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    items = await db.feedback.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    # Attach event person_name
+    for item in items:
+        ev = await db.events.find_one({"id": item["event_id"]}, {"_id": 0, "person_name": 1, "occasion_type": 1})
+        item["event_name"] = ev["person_name"] if ev else "Unknown"
+        item["occasion_type"] = ev["occasion_type"] if ev else ""
+    return items
 
 @api_router.post("/ai/generate-message")
 async def generate_message(body: AIMessageRequest, current_user=Depends(get_current_user)):

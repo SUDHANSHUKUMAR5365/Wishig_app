@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Users, Eye, Gift, Trash2, LogOut, ExternalLink, Lock, ChevronDown, ChevronUp, UserX, ChevronLeft } from 'lucide-react';
+import { Sparkles, Users, Eye, Gift, Trash2, LogOut, ExternalLink, Lock, ChevronDown, ChevronUp, UserX, ChevronLeft, Star, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -20,6 +20,7 @@ const AdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [maintenance, setMaintenance] = useState(false);
   const [togglingMaintenance, setTogglingMaintenance] = useState(false);
+  const [feedbacks, setFeedbacks] = useState([]);
 
   useEffect(() => {
     if (!isAdmin) { navigate('/login'); return; }
@@ -29,11 +30,13 @@ const AdminPage = () => {
       axios.get(`${API}/events`, { headers }),
       axios.get(`${API}/admin/users`, { headers }),
       axios.get(`${API}/admin/maintenance`, { headers }),
-    ]).then(([s, e, u, m]) => {
+      axios.get(`${API}/admin/feedback`, { headers }),
+    ]).then(([s, e, u, m, f]) => {
       setStats(s.data);
       setEvents(e.data);
       setUsers(u.data);
       setMaintenance(m.data.maintenance);
+      setFeedbacks(f.data);
     }).catch(() => toast.error('Failed to load data'))
       .finally(() => setLoading(false));
   }, [token, isAdmin, navigate]);
@@ -197,6 +200,51 @@ const AdminPage = () => {
             <span className={`w-2 h-2 rounded-full ${maintenance ? 'bg-red-400 animate-pulse' : 'bg-green-400'}`} />
             {togglingMaintenance ? 'Updating...' : maintenance ? 'Turn OFF' : 'Turn ON'}
           </button>
+        </div>
+
+        {/* Feedback Section */}
+        <div className="glass rounded-2xl overflow-hidden mb-8">
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-[#D4AF37]" />
+              <h3 className="font-heading text-white text-lg">All Feedback</h3>
+            </div>
+            {feedbacks.length > 0 && (
+              <span className="text-[#94A3B8] text-sm">
+                Avg: <span className="text-[#D4AF37] font-bold">
+                  {(feedbacks.reduce((a, f) => a + f.stars, 0) / feedbacks.length).toFixed(1)}★
+                </span> &nbsp;·&nbsp; {feedbacks.length} review{feedbacks.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div className="divide-y divide-white/5">
+            {feedbacks.length === 0 ? (
+              <p className="text-[#94A3B8] text-center py-8">No feedback yet</p>
+            ) : feedbacks.map((fb, i) => (
+              <div key={i} className="p-4 hover:bg-white/5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-yellow-400 text-sm tracking-tight">
+                        {'★'.repeat(fb.stars)}{'☆'.repeat(5 - fb.stars)}
+                      </span>
+                      <span className="text-[#D4AF37] font-bold text-sm">{fb.stars}/5</span>
+                    </div>
+                    <p className="text-white text-sm font-medium">{fb.event_name} <span className="text-[#94A3B8] font-normal">· {fb.occasion_type}</span></p>
+                    {fb.message && (
+                      <p className="text-[#94A3B8] text-sm mt-1 flex items-start gap-1">
+                        <MessageSquare className="w-3 h-3 mt-0.5 shrink-0" />
+                        {fb.message}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[#94A3B8] text-xs shrink-0">
+                    {new Date(fb.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* All Events */}

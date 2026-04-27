@@ -597,6 +597,79 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   );
 };
 
+// Feedback Card
+const FeedbackCard = ({ eventId, theme }) => {
+  const [stars, setStars] = useState(0);
+  const [hovered, setHovered] = useState(0);
+  const [message, setMessage] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    if (!stars) return;
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/feedback`, { event_id: eventId, stars, message });
+      setSubmitted(true);
+      confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#D4AF37', '#FFD700'] });
+    } catch { /* silent */ }
+    finally { setSubmitting(false); }
+  };
+
+  if (submitted) return (
+    <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+      className="rounded-2xl p-6 text-center"
+      style={{ backgroundColor: theme.colors.primary + '15', border: `1px solid ${theme.colors.primary}30` }}>
+      <div className="text-4xl mb-3">🙏</div>
+      <p className="font-heading text-lg" style={{ color: theme.colors.primary }}>Thank you!</p>
+      <p className="text-sm mt-1" style={{ color: theme.colors.text + '80' }}>Your feedback means a lot</p>
+    </motion.div>
+  );
+
+  return (
+    <div className="rounded-2xl p-6" style={{ backgroundColor: theme.colors.primary + '10', border: `1px solid ${theme.colors.primary}25` }}>
+      <p className="font-heading text-lg text-center mb-1" style={{ color: theme.colors.primary }}>How was this experience?</p>
+      <p className="text-xs text-center mb-5" style={{ color: theme.colors.text + '60' }}>Rate out of 5 stars (required)</p>
+
+      {/* Stars */}
+      <div className="flex justify-center gap-3 mb-5">
+        {[1,2,3,4,5].map(s => (
+          <button
+            key={s}
+            onClick={() => setStars(s)}
+            onMouseEnter={() => setHovered(s)}
+            onMouseLeave={() => setHovered(0)}
+            className="text-4xl transition-transform active:scale-90"
+            style={{ transform: (hovered || stars) >= s ? 'scale(1.15)' : 'scale(1)' }}
+          >
+            <span style={{ filter: (hovered || stars) >= s ? 'none' : 'grayscale(1) opacity(0.3)' }}>⭐</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Optional message */}
+      <textarea
+        value={message}
+        onChange={e => setMessage(e.target.value)}
+        placeholder="Share your thoughts... (optional)"
+        maxLength={500}
+        rows={3}
+        className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-4"
+        style={{ backgroundColor: theme.colors.text + '10', border: `1px solid ${theme.colors.text}20`, color: theme.colors.text, outline: 'none' }}
+      />
+
+      <button
+        onClick={submit}
+        disabled={!stars || submitting}
+        className="w-full py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-40"
+        style={{ backgroundColor: stars ? theme.colors.primary : theme.colors.text + '20', color: stars ? theme.colors.background : theme.colors.text }}
+      >
+        {submitting ? 'Sending...' : stars ? `Submit ${stars}★ Feedback` : 'Select stars to submit'}
+      </button>
+    </div>
+  );
+};
+
 // Special Note with typewriter
 const SpecialNote = ({ note, theme }) => {
   const [displayed, setDisplayed] = useState('');
@@ -901,6 +974,15 @@ const CelebrationExperience = () => {
                       Made with ❤️ by <span style={{ color: theme.colors.primary }}>Sudhanshu Kumar</span>
                     </p>
                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Feedback */}
+            <AnimatePresence>
+              {giftsComplete && (
+                <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}>
+                  <FeedbackCard eventId={eventId} theme={theme} />
                 </motion.div>
               )}
             </AnimatePresence>
