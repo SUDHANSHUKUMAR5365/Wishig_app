@@ -394,7 +394,7 @@ async def set_maintenance(body: dict, current_user=Depends(get_current_user)):
 @api_router.get("/upload/signature")
 async def upload_signature(folder: str = "uploads", current_user=Depends(get_current_user)):
     import hashlib, time
-    ALLOWED = ['photos', 'videos', 'voice', 'songs']
+    ALLOWED = ['photos', 'videos', 'voice', 'songs', 'avatars']
     if folder not in ALLOWED:
         raise HTTPException(status_code=400, detail="Invalid folder")
     timestamp = int(time.time())

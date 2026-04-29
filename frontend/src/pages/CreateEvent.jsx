@@ -101,29 +101,33 @@ const SongClipper = ({ songUrl, songStart, songDuration, onChange }) => {
     }
   }, []);
 
-  // Resize canvas to match container
+  // Resize canvas to match container — only sets width once correctly
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ro = new ResizeObserver(() => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-      canvas.getContext('2d').scale(window.devicePixelRatio, window.devicePixelRatio);
+    const setSize = () => {
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
       draw(currentStartRef.current, totalDuration, isPlaying, audioRef.current?.currentTime || 0);
-    });
+    };
+    setSize();
+    const ro = new ResizeObserver(setSize);
     ro.observe(canvas);
     return () => ro.disconnect();
   }, [totalDuration, isPlaying, draw]);
 
-  // Load audio metadata
+  // Load audio metadata — crossOrigin needed for Cloudinary URLs
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onLoaded = () => setTotalDuration(audio.duration);
+    audio.crossOrigin = 'anonymous';
+    const onLoaded = () => {
+      setTotalDuration(audio.duration);
+      currentStartRef.current = songStart;
+    };
     audio.addEventListener('loadedmetadata', onLoaded);
-    if (audio.readyState >= 1) onLoaded();
+    // Force reload in case already cached
+    audio.load();
     return () => audio.removeEventListener('loadedmetadata', onLoaded);
   }, [songUrl]);
 
