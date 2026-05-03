@@ -285,51 +285,51 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
   const [modalIndex, setModalIndex] = useState(null);
   const [revealed, setRevealed] = useState([]);
 
-  // If no photos, complete immediately
   useEffect(() => {
     if (photos.length === 0) onComplete();
   }, []);
+
+  const total = photos.length; // show ALL photos, no cap
 
   const reveal = (i) => {
     const newRevealed = revealed.includes(i) ? revealed : [...revealed, i];
     setRevealed(newRevealed);
     setModalPhoto(photos[i].url);
     setModalIndex(i);
-    if (!revealed.includes(i) && newRevealed.length === Math.min(photos.length, 6)) {
+    if (!revealed.includes(i) && newRevealed.length === total) {
       confetti({ particleCount: 150, spread: 120, origin: { y: 0.5 } });
       setTimeout(onComplete, 1500);
     }
   };
 
   const showPrev = () => {
-    const newIdx = (modalIndex - 1 + Math.min(photos.length, 6)) % Math.min(photos.length, 6);
+    const newIdx = (modalIndex - 1 + total) % total;
     setModalIndex(newIdx);
     setModalPhoto(photos[newIdx].url);
   };
 
   const showNext = () => {
-    const newIdx = (modalIndex + 1) % Math.min(photos.length, 6);
+    const newIdx = (modalIndex + 1) % total;
     setModalIndex(newIdx);
     setModalPhoto(photos[newIdx].url);
   };
 
-  const rotations = [-3, 4, -2, 3, -4, 2];
-  const displayPhotos = photos.slice(0, 6);
+  const rotations = [-3, 4, -2, 3, -4, 2, -1, 3];
 
   if (photos.length === 0) return null;
 
   return (
     <>
       <div className="grid grid-cols-2 gap-6 p-4">
-        {displayPhotos.map((photo, i) => (
+        {photos.map((photo, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.1 }}
+            transition={{ delay: i * 0.08 }}
             onClick={() => reveal(i)}
             className="cursor-pointer"
-            style={{ transform: `rotate(${rotations[i]}deg)` }}
+            style={{ transform: `rotate(${rotations[i % rotations.length]}deg)` }}
             whileHover={{ scale: 1.08, rotate: 0, zIndex: 10 }}
           >
             <div className="bg-white p-2 pb-8 shadow-xl">
@@ -359,15 +359,15 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
             onClick={() => setModalPhoto(null)}
           >
             {/* Counter top right */}
-            {displayPhotos.length > 1 && (
+            {total > 1 && (
               <div className="w-full flex justify-end px-4 pt-4 shrink-0" onClick={e => e.stopPropagation()}>
-                <span className="text-white/60 text-sm bg-black/40 px-3 py-1 rounded-full">{modalIndex + 1} / {displayPhotos.length}</span>
+                <span className="text-white/60 text-sm bg-black/40 px-3 py-1 rounded-full">{modalIndex + 1} / {total}</span>
               </div>
             )}
 
             {/* Image */}
             <div className="flex-1 flex items-center justify-center w-full px-4 relative" onClick={e => e.stopPropagation()}>
-              {displayPhotos.length > 1 && (
+              {total > 1 && (
                 <button onClick={showPrev} className="absolute left-2 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-xl">‹</button>
               )}
               <motion.img
@@ -378,7 +378,7 @@ const PolaroidGallery = ({ photos, theme, onComplete }) => {
                 alt=""
                 className="max-w-full max-h-[75vh] rounded-lg shadow-2xl object-contain"
               />
-              {displayPhotos.length > 1 && (
+              {total > 1 && (
                 <button onClick={showNext} className="absolute right-2 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white text-xl">›</button>
               )}
             </div>
@@ -504,11 +504,10 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [volume, setVolume] = useState(0);
   const clipEnd = songStart + songDuration;
   const fadeRef = useRef(null);
+  const loopingRef = useRef(false); // guard: prevent multiple fadeOut calls per loop
 
-  // Fade in over 2s
   const fadeIn = () => {
     if (!audioRef.current) return;
     audioRef.current.volume = 0;
@@ -517,27 +516,25 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
     fadeRef.current = setInterval(() => {
       v = Math.min(1, v + 0.05);
       if (audioRef.current) audioRef.current.volume = v;
-      setVolume(v);
       if (v >= 1) clearInterval(fadeRef.current);
     }, 100);
   };
 
-  // Fade out over 1.5s then pause
   const fadeOut = (cb) => {
     if (!audioRef.current) return;
     let v = audioRef.current.volume;
     clearInterval(fadeRef.current);
     fadeRef.current = setInterval(() => {
-      v = Math.max(0, v - 0.07);
+      v = Math.max(0, v - 0.08);
       if (audioRef.current) audioRef.current.volume = v;
-      setVolume(v);
       if (v <= 0) { clearInterval(fadeRef.current); cb && cb(); }
-    }, 100);
+    }, 80);
   };
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    loopingRef.current = false;
     audio.currentTime = songStart;
     audio.volume = 0;
     audio.play().then(fadeIn).catch(() => {});
@@ -562,12 +559,16 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
     const ct = audioRef.current.currentTime;
-    if (ct >= clipEnd - 1.5) {
-      // Fade out near end, then loop
+    // Only trigger loop fade once — guard with loopingRef
+    if (ct >= clipEnd - 1.5 && !loopingRef.current) {
+      loopingRef.current = true;
       fadeOut(() => {
         if (audioRef.current) {
           audioRef.current.currentTime = songStart;
-          audioRef.current.play().then(fadeIn).catch(() => {});
+          audioRef.current.play().then(() => {
+            loopingRef.current = false;
+            fadeIn();
+          }).catch(() => { loopingRef.current = false; });
         }
       });
     }
