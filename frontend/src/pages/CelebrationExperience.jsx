@@ -504,89 +504,84 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
-  const clipEnd = songStart + songDuration;
-  const fadeRef = useRef(null);
-  const loopingRef = useRef(false); // guard: prevent multiple fadeOut calls per loop
+  const startedRef = useRef(false);
 
-  const fadeIn = () => {
-    if (!audioRef.current) return;
-    audioRef.current.volume = 0;
-    let v = 0;
-    clearInterval(fadeRef.current);
-    fadeRef.current = setInterval(() => {
-      v = Math.min(1, v + 0.05);
-      if (audioRef.current) audioRef.current.volume = v;
-      if (v >= 1) clearInterval(fadeRef.current);
-    }, 100);
-  };
-
-  const fadeOut = (cb) => {
-    if (!audioRef.current) return;
-    let v = audioRef.current.volume;
-    clearInterval(fadeRef.current);
-    fadeRef.current = setInterval(() => {
-      v = Math.max(0, v - 0.08);
-      if (audioRef.current) audioRef.current.volume = v;
-      if (v <= 0) { clearInterval(fadeRef.current); cb && cb(); }
-    }, 80);
-  };
-
+  // Initial fade-in on mount
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    loopingRef.current = false;
+    startedRef.current = false;
     audio.currentTime = songStart;
     audio.volume = 0;
-    audio.play().then(fadeIn).catch(() => {});
-    setIsPlaying(true);
-    return () => { clearInterval(fadeRef.current); };
-  }, [songUrl]);
+    const play = () => {
+      audio.play().then(() => {
+        setIsPlaying(true);
+        startedRef.current = true;
+        // Fade in volume 0 → 1 over 2s
+        let v = 0;
+        const t = setInterval(() => {
+          v = Math.min(1, v + 0.05);
+          if (audio) audio.volume = v;
+          if (v >= 1) clearInterval(t);
+        }, 100);
+      }).catch(() => {});
+    };
+    // Small delay to let browser settle
+    const t = setTimeout(play, 300);
+    return () => clearTimeout(t);
+  }, [songUrl, songStart]);
+
+  // Loop: when currentTime hits clipEnd, jump back to songStart
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onTime = () => {
+      if (!audio) return;
+      const ct = audio.currentTime;
+      const clipEnd = songStart + songDuration;
+      // Jump back 0.3s before end to avoid silence gap
+      if (ct >= clipEnd - 0.3) {
+        audio.currentTime = songStart;
+      }
+      if (startedRef.current) {
+        setProgress(((ct - songStart) / songDuration) * 100 || 0);
+      }
+    };
+    audio.addEventListener('timeupdate', onTime);
+    return () => audio.removeEventListener('timeupdate', onTime);
+  }, [songStart, songDuration]);
 
   const togglePlay = () => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
     if (isPlaying) {
-      fadeOut(() => audioRef.current?.pause());
+      audio.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current.play().then(fadeIn).catch(() => {});
+      audio.play().catch(() => {});
+      setIsPlaying(true);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const toggleMute = () => {
-    if (audioRef.current) { audioRef.current.muted = !isMuted; setIsMuted(!isMuted); }
-  };
-
-  const handleTimeUpdate = () => {
-    if (!audioRef.current) return;
-    const ct = audioRef.current.currentTime;
-    // Only trigger loop fade once — guard with loopingRef
-    if (ct >= clipEnd - 1.5 && !loopingRef.current) {
-      loopingRef.current = true;
-      fadeOut(() => {
-        if (audioRef.current) {
-          audioRef.current.currentTime = songStart;
-          audioRef.current.play().then(() => {
-            loopingRef.current = false;
-            fadeIn();
-          }).catch(() => { loopingRef.current = false; });
-        }
-      });
-    }
-    setProgress(((ct - songStart) / songDuration) * 100 || 0);
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.muted = !isMuted;
+    setIsMuted(!isMuted);
   };
 
   const handleSeek = (value) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = songStart + (value[0] / 100) * songDuration;
-      setProgress(value[0]);
-    }
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = songStart + (value[0] / 100) * songDuration;
+    setProgress(value[0]);
   };
 
   if (!songUrl) return null;
 
   return (
     <div className="rounded-xl p-3 flex items-center gap-3" style={{ backgroundColor: theme.colors.primary + '18', border: `1px solid ${theme.colors.primary}30` }}>
-      <audio ref={audioRef} src={songUrl} onTimeUpdate={handleTimeUpdate} />
+      <audio ref={audioRef} src={songUrl} preload="auto" />
       <button onClick={togglePlay} className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }} data-testid="music-play-btn">
         {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
       </button>
