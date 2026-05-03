@@ -931,12 +931,19 @@ const CelebrationExperience = () => {
               )}
             </AnimatePresence>
 
-            {/* Video */}
+            {/* Video - muted so background music keeps playing */}
             <AnimatePresence>
               {giftsComplete && event?.video_url && (
                 <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}>
                   <div className="glass rounded-xl overflow-hidden">
-                    <video src={event.video_url} controls className="w-full rounded-xl" style={{ maxHeight: '400px' }} />
+                    <p className="text-center text-xs py-2" style={{ color: theme.colors.primary + '99' }}>🎵 Background music continues while video plays</p>
+                    <video
+                      src={event.video_url}
+                      controls
+                      muted
+                      className="w-full rounded-xl"
+                      style={{ maxHeight: '400px' }}
+                    />
                   </div>
                 </motion.div>
               )}
