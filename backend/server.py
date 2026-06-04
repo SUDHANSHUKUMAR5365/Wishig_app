@@ -12,11 +12,16 @@ import uuid
 import re
 from datetime import datetime, timezone, timedelta
 
+UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+
+def safe_uuid(value: str, label: str = "ID") -> str:
+    """Validate a UUID string to prevent NoSQL injection."""
+    if not UUID_RE.match(value):
+        raise HTTPException(status_code=400, detail=f"Invalid {label}")
+    return value
+
 def safe_event_id(event_id: str) -> str:
-    """Validate event_id is a UUID to prevent NoSQL injection."""
-    if not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', event_id, re.IGNORECASE):
-        raise HTTPException(status_code=400, detail="Invalid event ID")
-    return event_id
+    return safe_uuid(event_id, "event ID")
 import cloudinary
 import cloudinary.uploader
 from jose import JWTError, jwt
@@ -396,7 +401,7 @@ async def upload_signature(folder: str = "uploads", current_user=Depends(get_cur
     timestamp = int(time.time())
     cloud_folder = f"celebration-qr/{folder}"
     params = f"folder={cloud_folder}&timestamp={timestamp}"
-    signature = hashlib.sha1(f"{params}{os.environ.get('CLOUDINARY_API_SECRET')}".encode()).hexdigest()
+    signature = hashlib.sha256(f"{params}{os.environ.get('CLOUDINARY_API_SECRET')}".encode()).hexdigest()
     return {
         "signature": signature,
         "timestamp": timestamp,
@@ -488,6 +493,7 @@ async def delete_event(event_id: str, current_user=Depends(get_current_user)):
 async def delete_user(user_id: str, current_user=Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
+    user_id = safe_uuid(user_id, "user ID")
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
@@ -535,6 +541,7 @@ async def submit_feedback(body: dict):
     stars = body.get("stars")
     if not event_id or not stars or not isinstance(stars, int) or stars < 1 or stars > 5:
         raise HTTPException(status_code=400, detail="event_id and stars (1-5) are required")
+    event_id = safe_uuid(event_id, "event ID")
     feedback = {
         "id": str(uuid.uuid4()),
         "event_id": event_id,

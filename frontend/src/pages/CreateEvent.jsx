@@ -123,7 +123,7 @@ const CreateEvent = () => {
     special_note: '',
     voice_message_url: '',
     song_url: '',
-    easter_egg_message: '','
+    easter_egg_message: '',
     timeline: [],
     flip_cards: ['', '', '', '', '', ''],
     lock_pin: '',
