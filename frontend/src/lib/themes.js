@@ -45,6 +45,21 @@ export const themes = {
     particles: 'rgb',
     font: 'Press Start 2P'
   },
+  kaacha_mango: {
+    id: 'kaacha_mango',
+    name: 'Kaacha Mango',
+    category: 'boys',
+    preview: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=400',
+    colors: {
+      primary: '#6DBE45',
+      secondary: '#F4C430',
+      background: '#1A2A0A',
+      text: '#FFFFFF',
+      accent: '#A8D85A'
+    },
+    particles: 'leaves',
+    font: 'Nunito'
+  },
   minimal_dark: {
     id: 'minimal_dark',
     name: 'Minimal Dark',
@@ -119,6 +134,21 @@ export const themes = {
     },
     particles: 'bubbles',
     font: 'Fredoka One'
+  },
+  kaacha_mango_girls: {
+    id: 'kaacha_mango_girls',
+    name: 'Kaacha Mango',
+    category: 'girls',
+    preview: 'https://images.unsplash.com/photo-1519996529931-28324d5a630e?w=400',
+    colors: {
+      primary: '#7EC850',
+      secondary: '#FFC300',
+      background: '#F0F8E8',
+      text: '#2D5016',
+      accent: '#A8D85A'
+    },
+    particles: 'leaves',
+    font: 'Nunito'
   },
   romantic_red: {
     id: 'romantic_red',

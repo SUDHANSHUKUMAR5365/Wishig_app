@@ -499,11 +499,12 @@ const HeartsCanvas = ({ color }) => {
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }} />;
 };
 
-const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
+const MusicPlayer = ({ songUrl, theme }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
   const startedRef = useRef(false);
 
   // Initial fade-in on mount
@@ -511,7 +512,6 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
     const audio = audioRef.current;
     if (!audio) return;
     startedRef.current = false;
-    audio.currentTime = songStart;
     audio.volume = 0;
     const play = () => {
       audio.play().then(() => {
@@ -529,27 +529,39 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
     // Small delay to let browser settle
     const t = setTimeout(play, 300);
     return () => clearTimeout(t);
-  }, [songUrl, songStart]);
+  }, [songUrl]);
 
-  // Loop: when currentTime hits clipEnd, jump back to songStart
+  // Handle metadata loaded and track progress
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime = () => {
+    
+    const onLoadedMetadata = () => {
+      setDuration(audio.duration || 0);
+    };
+    
+    const onTimeUpdate = () => {
       if (!audio) return;
-      const ct = audio.currentTime;
-      const clipEnd = songStart + songDuration;
-      // Jump back 0.3s before end to avoid silence gap
-      if (ct >= clipEnd - 0.3) {
-        audio.currentTime = songStart;
-      }
-      if (startedRef.current) {
-        setProgress(((ct - songStart) / songDuration) * 100 || 0);
+      if (startedRef.current && duration > 0) {
+        setProgress((audio.currentTime / duration) * 100 || 0);
       }
     };
-    audio.addEventListener('timeupdate', onTime);
-    return () => audio.removeEventListener('timeupdate', onTime);
-  }, [songStart, songDuration]);
+    
+    const onEnded = () => {
+      setIsPlaying(false);
+      setProgress(0);
+    };
+    
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('ended', onEnded);
+    
+    return () => {
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, [duration]);
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -573,7 +585,7 @@ const MusicPlayer = ({ songUrl, theme, songStart = 0, songDuration = 60 }) => {
   const handleSeek = (value) => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.currentTime = songStart + (value[0] / 100) * songDuration;
+    audio.currentTime = (value[0] / 100) * duration;
     setProgress(value[0]);
   };
 
@@ -770,7 +782,7 @@ const CelebrationExperience = () => {
       {/* Music - starts right after PIN unlock, persists through all phases */}
       {event?.song_url && songEnabled && (
         <div className="fixed top-0 left-0 right-0 z-40 p-3 backdrop-blur" style={{ backgroundColor: theme.colors.background + 'CC' }}>
-          <MusicPlayer songUrl={event.song_url} theme={theme} songStart={event.song_start || 0} songDuration={event.song_duration || 60} />
+          <MusicPlayer songUrl={event.song_url} theme={theme} />
         </div>
       )}
 

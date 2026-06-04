@@ -39,7 +39,7 @@ class CelebrationAPITester:
             success = response.status_code == expected_status
             if success:
                 self.tests_passed += 1
-                print(f"✅ Passed - Status: {response.status_code}")
+                print(f" Passed - Status: {response.status_code}")
                 try:
                     response_data = response.json()
                     print(f"   Response: {json.dumps(response_data, indent=2)[:200]}...")
@@ -69,14 +69,14 @@ class CelebrationAPITester:
         if success:
             # Verify we have 12 themes
             if len(response) == 12:
-                print(f"   ✅ Found all 12 themes")
+                print(f"    Found all 12 themes")
                 # Check categories
                 categories = set()
                 for theme_id, theme_data in response.items():
                     categories.add(theme_data.get('category'))
                 expected_categories = {'boys', 'girls', 'anniversary'}
                 if categories == expected_categories:
-                    print(f"   ✅ All theme categories present: {categories}")
+                    print(f"    All theme categories present: {categories}")
                 else:
                     print(f"   ⚠️ Missing categories. Found: {categories}, Expected: {expected_categories}")
             else:
@@ -98,14 +98,14 @@ class CelebrationAPITester:
         success, response = self.run_test("Create Event", "POST", "events", 200, data=event_data)
         if success and 'id' in response:
             self.created_event_id = response['id']
-            print(f"   ✅ Event created with ID: {self.created_event_id}")
+            print(f"    Event created with ID: {self.created_event_id}")
         return success
 
     def test_get_events(self):
         """Test getting all events"""
         success, response = self.run_test("Get All Events", "GET", "events", 200)
         if success:
-            print(f"   ✅ Found {len(response)} events")
+            print(f"    Found {len(response)} events")
         return success
 
     def test_get_single_event(self):
@@ -122,7 +122,7 @@ class CelebrationAPITester:
         )
         if success:
             if response.get('person_name') == 'Test User':
-                print(f"   ✅ Event data matches")
+                print(f"    Event data matches")
             else:
                 print(f"   ⚠️ Event data mismatch")
         return success
@@ -146,7 +146,7 @@ class CelebrationAPITester:
         )
         if success:
             if response.get('special_note') == 'Updated test message!':
-                print(f"   ✅ Event updated successfully")
+                print(f"    Event updated successfully")
             else:
                 print(f"   ⚠️ Update may not have worked")
         return success
@@ -169,7 +169,7 @@ class CelebrationAPITester:
         )
         if success:
             if 'url' in response and 'path' in response:
-                print(f"   ✅ File uploaded successfully")
+                print(f"    File uploaded successfully")
                 print(f"   File URL: {response.get('url')}")
                 return True, response.get('path')
             else:
@@ -204,7 +204,7 @@ class CelebrationAPITester:
             200
         )
         if success:
-            print(f"   ✅ Event deleted successfully")
+            print(f"    Event deleted successfully")
         return success
 
     def test_get_nonexistent_event(self):

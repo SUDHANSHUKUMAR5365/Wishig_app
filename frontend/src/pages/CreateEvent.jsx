@@ -41,202 +41,56 @@ const occasionTypes = [
 
 const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
 
-// Fast canvas-based song clip picker
-const SongClipper = ({ songUrl, songStart, songDuration, onChange }) => {
+// Simple full-song preview player
+const SongPreview = ({ songUrl }) => {
   const audioRef = useRef(null);
-  const canvasRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [totalDuration, setTotalDuration] = useState(0);
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartSec = useRef(0);
-  const currentStartRef = useRef(songStart);
-  const rafRef = useRef(null);
-  const CLIP = 60;
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const fmt = (s) => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
-  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-
-  // Draw canvas waveform + clip window
-  const draw = useCallback((start, total, playing, currentTime) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !total) return;
-    const W = canvas.width, H = canvas.height;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, W, H);
-
-    const BAR_COUNT = 80;
-    const BAR_W = W / BAR_COUNT - 1;
-    const startPx = (start / total) * W;
-    const endPx = ((start + CLIP) / total) * W;
-
-    for (let i = 0; i < BAR_COUNT; i++) {
-      const x = i * (W / BAR_COUNT);
-      const barSec = (i / BAR_COUNT) * total;
-      const inClip = barSec >= start && barSec < start + CLIP;
-      const h = (0.2 + Math.abs(Math.sin(i * 0.9)) * 0.8) * H * 0.85;
-      ctx.fillStyle = inClip ? '#D4AF37' : 'rgba(255,255,255,0.15)';
-      ctx.beginPath();
-      ctx.roundRect(x, (H - h) / 2, BAR_W, h, 2);
-      ctx.fill();
-    }
-
-    // Clip window border
-    ctx.strokeStyle = '#D4AF37';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(startPx, 1, endPx - startPx, H - 2, 6);
-    ctx.stroke();
-
-    // Handles
-    ctx.fillStyle = '#D4AF37';
-    ctx.beginPath(); ctx.roundRect(startPx, 0, 12, H, [6, 0, 0, 6]); ctx.fill();
-    ctx.beginPath(); ctx.roundRect(endPx - 12, 0, 12, H, [0, 6, 6, 0]); ctx.fill();
-
-    // Playhead
-    if (playing && currentTime >= start && currentTime <= start + CLIP) {
-      const px = ((currentTime - start) / CLIP) * (endPx - startPx) + startPx;
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.beginPath(); ctx.roundRect(px - 1, 0, 2, H, 1); ctx.fill();
-    }
-  }, []);
-
-  // Resize canvas to match container — only sets width once correctly
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const setSize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      draw(currentStartRef.current, totalDuration, isPlaying, audioRef.current?.currentTime || 0);
-    };
-    setSize();
-    const ro = new ResizeObserver(setSize);
-    ro.observe(canvas);
-    return () => ro.disconnect();
-  }, [totalDuration, isPlaying, draw]);
-
-  // Load audio metadata — crossOrigin needed for Cloudinary URLs
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.crossOrigin = 'anonymous';
-    const onLoaded = () => {
-      setTotalDuration(audio.duration);
-      currentStartRef.current = songStart;
-    };
-    audio.addEventListener('loadedmetadata', onLoaded);
-    // Force reload in case already cached
-    audio.load();
-    return () => audio.removeEventListener('loadedmetadata', onLoaded);
+    const a = audioRef.current;
+    if (!a) return;
+    const onMeta = () => setDuration(a.duration);
+    const onTime = () => setProgress((a.currentTime / a.duration) * 100 || 0);
+    const onEnd = () => { setIsPlaying(false); setProgress(0); };
+    a.addEventListener('loadedmetadata', onMeta);
+    a.addEventListener('timeupdate', onTime);
+    a.addEventListener('ended', onEnd);
+    a.load();
+    return () => { a.removeEventListener('loadedmetadata', onMeta); a.removeEventListener('timeupdate', onTime); a.removeEventListener('ended', onEnd); };
   }, [songUrl]);
 
-  // Animation loop for playhead
-  useEffect(() => {
-    if (!isPlaying) { cancelAnimationFrame(rafRef.current); return; }
-    const loop = () => {
-      const audio = audioRef.current;
-      if (audio) {
-        if (audio.currentTime >= currentStartRef.current + CLIP) audio.currentTime = currentStartRef.current;
-        draw(currentStartRef.current, totalDuration, true, audio.currentTime);
-      }
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [isPlaying, totalDuration, draw]);
-
-  // Redraw when start changes (from outside drag)
-  useEffect(() => {
-    currentStartRef.current = songStart;
-    if (!isPlaying) draw(songStart, totalDuration, false, 0);
-  }, [songStart, totalDuration, isPlaying, draw]);
-
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying) { audio.pause(); setIsPlaying(false); }
-    else { audio.currentTime = currentStartRef.current; audio.play().catch(() => {}); setIsPlaying(true); }
+  const toggle = () => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (isPlaying) { a.pause(); } else { a.play().catch(() => {}); }
+    setIsPlaying(!isPlaying);
   };
 
-  const getSecFromEvent = (e) => {
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    return ((clientX - rect.left) / rect.width) * totalDuration;
+  const seek = (e) => {
+    const a = audioRef.current;
+    if (!a || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    a.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
   };
-
-  const onPointerDown = (e) => {
-    if (!totalDuration) return;
-    e.preventDefault();
-    isDragging.current = true;
-    dragStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
-    dragStartSec.current = currentStartRef.current;
-  };
-
-  useEffect(() => {
-    const onMove = (e) => {
-      if (!isDragging.current || !totalDuration) return;
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const canvas = canvasRef.current;
-      const dPx = clientX - dragStartX.current;
-      const dSec = (dPx / canvas.offsetWidth) * totalDuration;
-      const newStart = clamp(dragStartSec.current + dSec, 0, totalDuration - CLIP);
-      currentStartRef.current = newStart;
-      draw(newStart, totalDuration, isPlaying, audioRef.current?.currentTime || 0);
-      if (audioRef.current) audioRef.current.currentTime = newStart;
-    };
-    const onUp = () => {
-      if (!isDragging.current) return;
-      isDragging.current = false;
-      onChange(Math.round(currentStartRef.current), CLIP);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('touchend', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('touchend', onUp);
-    };
-  }, [totalDuration, isPlaying, onChange, draw]);
-
-  if (!totalDuration) return (
-    <div className="flex items-center justify-center py-6">
-      <Loader2 className="w-6 h-6 text-[#D4AF37] animate-spin mr-2" />
-      <span className="text-[#94A3B8] text-sm">Loading audio...</span>
-    </div>
-  );
 
   return (
-    <div className="space-y-3">
+    <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3 border border-white/10">
       <audio ref={audioRef} src={songUrl} preload="metadata" />
-
-      <div className="flex items-center gap-3">
-        <button onClick={togglePlay}
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ backgroundColor: '#D4AF37', color: '#0A0F1F' }}>
-          {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-        </button>
-        <div>
-          <p className="text-white text-sm font-medium">
-            {fmt(songStart)} → {fmt(Math.min(songStart + CLIP, totalDuration))}
-          </p>
-          <p className="text-[#94A3B8] text-xs">Total: {fmt(totalDuration)}</p>
+      <button onClick={toggle} className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: '#D4AF37', color: '#0A0F1F' }}>
+        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+      </button>
+      <div className="flex-1">
+        <div className="w-full h-2 bg-white/10 rounded-full cursor-pointer mb-1" onClick={seek}>
+          <div className="h-2 rounded-full transition-all" style={{ width: `${progress}%`, backgroundColor: '#D4AF37' }} />
+        </div>
+        <div className="flex justify-between">
+          <span className="text-[#94A3B8] text-xs">{fmt(audioRef.current?.currentTime || 0)}</span>
+          <span className="text-[#94A3B8] text-xs">{duration ? fmt(duration) : '--:--'}</span>
         </div>
       </div>
-
-      <canvas
-        ref={canvasRef}
-        className="w-full rounded-xl cursor-grab active:cursor-grabbing"
-        style={{ height: 64, touchAction: 'none', userSelect: 'none' }}
-        onMouseDown={onPointerDown}
-        onTouchStart={onPointerDown}
-      />
-
-      <p className="text-[#94A3B8] text-xs text-center">Drag the golden window to pick your 60s clip</p>
     </div>
   );
 };
@@ -269,9 +123,7 @@ const CreateEvent = () => {
     special_note: '',
     voice_message_url: '',
     song_url: '',
-    song_start: 0,
-    song_duration: 60,
-    easter_egg_message: '',
+    easter_egg_message: '','
     timeline: [],
     flip_cards: ['', '', '', '', '', ''],
     lock_pin: '',
@@ -462,8 +314,6 @@ const CreateEvent = () => {
         lock_pin: formData.lock_pin || null,
         lock_hint: formData.lock_hint || null,
         flip_cards: formData.flip_cards.filter(c => c.trim() !== ''),
-        song_start: formData.song_start || 0,
-        song_duration: formData.song_duration || 60,
       };
 
       const response = await axios.post(`${API}/events`, eventData, {
@@ -859,17 +709,10 @@ const CreateEvent = () => {
               />
             </div>
 
-            {/* Clip picker is completely outside the upload div */}
             {formData.song_url && (
               <div className="border border-white/10 rounded-xl p-4">
-                <Label className="text-white block mb-1">🎵 Pick your 60s clip</Label>
-                <p className="text-[#94A3B8] text-xs mb-4">Drag the golden window to choose which part plays.</p>
-                <SongClipper
-                  songUrl={formData.song_url}
-                  songStart={formData.song_start}
-                  songDuration={formData.song_duration}
-                  onChange={(start, duration) => setFormData(prev => ({ ...prev, song_start: start, song_duration: duration }))}
-                />
+                <Label className="text-white block mb-3">🎵 Preview</Label>
+                <SongPreview songUrl={formData.song_url} />
               </div>
             )}
           </div>

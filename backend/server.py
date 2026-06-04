@@ -128,11 +128,13 @@ THEMES = {
     "neon_cyber": {"name": "Neon Cyber", "category": "boys", "primary": "#00D4FF", "secondary": "#8B5CF6", "bg": "#0A0A1A"},
     "royal_gold": {"name": "Royal Gold", "category": "boys", "primary": "#FFD700", "secondary": "#1A1A2E", "bg": "#0D0D0D"},
     "gaming_rgb": {"name": "Gaming RGB", "category": "boys", "primary": "#FF0080", "secondary": "#00FF88", "bg": "#0F0F23"},
+    "kaacha_mango": {"name": "Kaacha Mango", "category": "boys", "primary": "#6DBE45", "secondary": "#F4C430", "bg": "#1A2A0A"},
     "minimal_dark": {"name": "Minimal Dark", "category": "boys", "primary": "#FFFFFF", "secondary": "#64748B", "bg": "#18181B"},
     "pink_pastel": {"name": "Pink Pastel", "category": "girls", "primary": "#FF69B4", "secondary": "#FFB6C1", "bg": "#FFF0F5"},
     "floral_elegant": {"name": "Floral Elegant", "category": "girls", "primary": "#E8B4BC", "secondary": "#98D8C8", "bg": "#FDF5E6"},
     "glitter_party": {"name": "Glitter Party", "category": "girls", "primary": "#FF1493", "secondary": "#FFD700", "bg": "#1A0A1A"},
     "cute_cartoon": {"name": "Cute Cartoon", "category": "girls", "primary": "#FF6B6B", "secondary": "#4ECDC4", "bg": "#FFF5EE"},
+    "kaacha_mango_girls": {"name": "Kaacha Mango", "category": "girls", "primary": "#7EC850", "secondary": "#FFC300", "bg": "#F0F8E8"},
     "romantic_red": {"name": "Romantic Red", "category": "anniversary", "primary": "#DC143C", "secondary": "#8B0000", "bg": "#1A0A0A"},
     "golden_love": {"name": "Golden Love", "category": "anniversary", "primary": "#DAA520", "secondary": "#8B4513", "bg": "#0D0D0D"},
     "memory_lane": {"name": "Memory Lane", "category": "anniversary", "primary": "#D2691E", "secondary": "#8B7355", "bg": "#FAF0E6"},
@@ -160,8 +162,6 @@ class EventCreate(BaseModel):
     video_url: Optional[str] = None
     special_note: Optional[str] = None
     song_url: Optional[str] = None
-    song_start: int = 0
-    song_duration: int = 60
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: List[TimelineItem] = []
@@ -182,8 +182,6 @@ class Event(BaseModel):
     video_url: Optional[str] = None
     special_note: Optional[str] = None
     song_url: Optional[str] = None
-    song_start: int = 0
-    song_duration: int = 60
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: List[TimelineItem] = []
@@ -206,8 +204,6 @@ class EventUpdate(BaseModel):
     video_url: Optional[str] = None
     special_note: Optional[str] = None
     song_url: Optional[str] = None
-    song_start: Optional[int] = None
-    song_duration: Optional[int] = None
     custom_background_url: Optional[str] = None
     custom_font: Optional[str] = None
     timeline: Optional[List[TimelineItem]] = None
