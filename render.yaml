@@ -25,7 +25,7 @@ services:
     name: celebration-qr-frontend
     runtime: static
     rootDir: frontend
-    buildCommand: yarn build
+    buildCommand: npm install --legacy-peer-deps && npm run build
     staticPublishPath: build
     routes:
       - type: rewrite
