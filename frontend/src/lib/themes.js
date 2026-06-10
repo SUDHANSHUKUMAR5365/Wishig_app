@@ -1,5 +1,9 @@
-// Theme configurations for the 12 celebration themes
+// Theme engine — single source of truth for all visual styles.
+// To add a new theme: add an entry to the `themes` object below.
+// Each theme exposes: id, name, category, colors, gradient, particles, font.
+
 export const themes = {
+  // ─── Boys ────────────────────────────────────────────────────────────────
   neon_cyber: {
     id: 'neon_cyber',
     name: 'Neon Cyber',
@@ -10,10 +14,11 @@ export const themes = {
       secondary: '#8B5CF6',
       background: '#0A0A1A',
       text: '#FFFFFF',
-      accent: '#FF00FF'
+      accent: '#FF00FF',
     },
+    gradient: 'linear-gradient(135deg, #0A0A1A 0%, #0D0D2B 100%)',
     particles: 'cyber',
-    font: 'Orbitron'
+    font: 'Orbitron',
   },
   royal_gold: {
     id: 'royal_gold',
@@ -25,10 +30,11 @@ export const themes = {
       secondary: '#1A1A2E',
       background: '#0D0D0D',
       text: '#FFFFFF',
-      accent: '#B8860B'
+      accent: '#B8860B',
     },
+    gradient: 'linear-gradient(135deg, #0D0D0D 0%, #1A1200 100%)',
     particles: 'gold',
-    font: 'Playfair Display'
+    font: 'Playfair Display',
   },
   gaming_rgb: {
     id: 'gaming_rgb',
@@ -40,10 +46,11 @@ export const themes = {
       secondary: '#00FF88',
       background: '#0F0F23',
       text: '#FFFFFF',
-      accent: '#00FFFF'
+      accent: '#00FFFF',
     },
+    gradient: 'linear-gradient(135deg, #0F0F23 0%, #1A0F23 100%)',
     particles: 'rgb',
-    font: 'Press Start 2P'
+    font: 'Press Start 2P',
   },
   kaacha_mango: {
     id: 'kaacha_mango',
@@ -55,10 +62,11 @@ export const themes = {
       secondary: '#F4C430',
       background: '#1A2A0A',
       text: '#FFFFFF',
-      accent: '#A8D85A'
+      accent: '#A8D85A',
     },
+    gradient: 'linear-gradient(135deg, #1A2A0A 0%, #0A1A05 100%)',
     particles: 'leaves',
-    font: 'Nunito'
+    font: 'Nunito',
   },
   minimal_dark: {
     id: 'minimal_dark',
@@ -70,11 +78,14 @@ export const themes = {
       secondary: '#64748B',
       background: '#18181B',
       text: '#FFFFFF',
-      accent: '#A1A1AA'
+      accent: '#A1A1AA',
     },
+    gradient: 'linear-gradient(135deg, #18181B 0%, #09090B 100%)',
     particles: 'minimal',
-    font: 'Inter'
+    font: 'Inter',
   },
+
+  // ─── Girls ───────────────────────────────────────────────────────────────
   pink_pastel: {
     id: 'pink_pastel',
     name: 'Pink Pastel',
@@ -85,10 +96,11 @@ export const themes = {
       secondary: '#FFB6C1',
       background: '#FFF0F5',
       text: '#4A0020',
-      accent: '#FF1493'
+      accent: '#FF1493',
     },
+    gradient: 'linear-gradient(135deg, #FFF0F5 0%, #FFE4EF 100%)',
     particles: 'hearts',
-    font: 'Quicksand'
+    font: 'Quicksand',
   },
   floral_elegant: {
     id: 'floral_elegant',
@@ -100,10 +112,11 @@ export const themes = {
       secondary: '#98D8C8',
       background: '#FDF5E6',
       text: '#2F4F4F',
-      accent: '#DDA0DD'
+      accent: '#DDA0DD',
     },
+    gradient: 'linear-gradient(135deg, #FDF5E6 0%, #FAF0E0 100%)',
     particles: 'petals',
-    font: 'Dancing Script'
+    font: 'Dancing Script',
   },
   glitter_party: {
     id: 'glitter_party',
@@ -115,10 +128,11 @@ export const themes = {
       secondary: '#FFD700',
       background: '#1A0A1A',
       text: '#FFFFFF',
-      accent: '#FF69B4'
+      accent: '#FF69B4',
     },
+    gradient: 'linear-gradient(135deg, #1A0A1A 0%, #2A0A1A 100%)',
     particles: 'glitter',
-    font: 'Pacifico'
+    font: 'Pacifico',
   },
   cute_cartoon: {
     id: 'cute_cartoon',
@@ -130,10 +144,11 @@ export const themes = {
       secondary: '#4ECDC4',
       background: '#FFF5EE',
       text: '#2D3436',
-      accent: '#FFEAA7'
+      accent: '#FFEAA7',
     },
+    gradient: 'linear-gradient(135deg, #FFF5EE 0%, #FFF0E0 100%)',
     particles: 'bubbles',
-    font: 'Fredoka One'
+    font: 'Fredoka One',
   },
   kaacha_mango_girls: {
     id: 'kaacha_mango_girls',
@@ -145,11 +160,14 @@ export const themes = {
       secondary: '#FFC300',
       background: '#F0F8E8',
       text: '#2D5016',
-      accent: '#A8D85A'
+      accent: '#A8D85A',
     },
+    gradient: 'linear-gradient(135deg, #F0F8E8 0%, #E8F5D8 100%)',
     particles: 'leaves',
-    font: 'Nunito'
+    font: 'Nunito',
   },
+
+  // ─── Anniversary ─────────────────────────────────────────────────────────
   romantic_red: {
     id: 'romantic_red',
     name: 'Romantic Red',
@@ -160,10 +178,11 @@ export const themes = {
       secondary: '#8B0000',
       background: '#1A0A0A',
       text: '#FFFFFF',
-      accent: '#FF6B6B'
+      accent: '#FF6B6B',
     },
+    gradient: 'linear-gradient(135deg, #1A0A0A 0%, #2A0505 100%)',
     particles: 'hearts',
-    font: 'Great Vibes'
+    font: 'Great Vibes',
   },
   golden_love: {
     id: 'golden_love',
@@ -175,10 +194,11 @@ export const themes = {
       secondary: '#8B4513',
       background: '#0D0D0D',
       text: '#FFFFFF',
-      accent: '#FFD700'
+      accent: '#FFD700',
     },
+    gradient: 'linear-gradient(135deg, #0D0D0D 0%, #1A1200 100%)',
     particles: 'gold',
-    font: 'Cinzel'
+    font: 'Cinzel',
   },
   memory_lane: {
     id: 'memory_lane',
@@ -190,10 +210,11 @@ export const themes = {
       secondary: '#8B7355',
       background: '#FAF0E6',
       text: '#3E2723',
-      accent: '#A0522D'
+      accent: '#A0522D',
     },
+    gradient: 'linear-gradient(135deg, #FAF0E6 0%, #F5E6D0 100%)',
     particles: 'vintage',
-    font: 'Cormorant Garamond'
+    font: 'Cormorant Garamond',
   },
   sunset_love: {
     id: 'sunset_love',
@@ -205,15 +226,104 @@ export const themes = {
       secondary: '#FF8C00',
       background: '#1A0F0A',
       text: '#FFFFFF',
-      accent: '#FFD700'
+      accent: '#FFD700',
     },
+    gradient: 'linear-gradient(135deg, #1A0F0A 0%, #2A1505 100%)',
     particles: 'sunset',
-    font: 'Libre Baskerville'
-  }
+    font: 'Libre Baskerville',
+  },
+
+  // ─── New named themes (requirement: Royal Gold, Princess Pink, Galaxy, Neon, Celebration, Minimal)
+  // royal_gold already exists above ↑
+
+  princess_pink: {
+    id: 'princess_pink',
+    name: 'Princess Pink',
+    category: 'girls',
+    preview: 'https://images.unsplash.com/photo-1557180295-76eee20ae8aa?w=400',
+    colors: {
+      primary: '#E91E8C',
+      secondary: '#F48FB1',
+      background: '#1A0010',
+      text: '#FFFFFF',
+      accent: '#FF80AB',
+    },
+    gradient: 'linear-gradient(135deg, #1A0010 0%, #2A0020 100%)',
+    particles: 'hearts',
+    font: 'Dancing Script',
+  },
+  galaxy: {
+    id: 'galaxy',
+    name: 'Galaxy',
+    category: 'boys',
+    preview: 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=400',
+    colors: {
+      primary: '#A78BFA',
+      secondary: '#60A5FA',
+      background: '#050510',
+      text: '#FFFFFF',
+      accent: '#F472B6',
+    },
+    gradient: 'linear-gradient(135deg, #050510 0%, #0D0520 100%)',
+    particles: 'stars',
+    font: 'Orbitron',
+  },
+  neon: {
+    id: 'neon',
+    name: 'Neon',
+    category: 'boys',
+    preview: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400',
+    colors: {
+      primary: '#39FF14',
+      secondary: '#FF073A',
+      background: '#080808',
+      text: '#FFFFFF',
+      accent: '#FFFF00',
+    },
+    gradient: 'linear-gradient(135deg, #080808 0%, #0A0A0A 100%)',
+    particles: 'cyber',
+    font: 'Orbitron',
+  },
+  celebration: {
+    id: 'celebration',
+    name: 'Celebration',
+    category: 'boys',
+    preview: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400',
+    colors: {
+      primary: '#FFD700',
+      secondary: '#FF6B6B',
+      background: '#0A050A',
+      text: '#FFFFFF',
+      accent: '#00D4FF',
+    },
+    gradient: 'linear-gradient(135deg, #0A050A 0%, #150510 100%)',
+    particles: 'glitter',
+    font: 'Pacifico',
+  },
+  minimal: {
+    id: 'minimal',
+    name: 'Minimal',
+    category: 'boys',
+    preview: 'https://images.unsplash.com/photo-1557683316-973673baf926?w=400',
+    colors: {
+      primary: '#E5E5E5',
+      secondary: '#737373',
+      background: '#FAFAFA',
+      text: '#171717',
+      accent: '#A3A3A3',
+    },
+    gradient: 'linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%)',
+    particles: 'minimal',
+    font: 'Inter',
+  },
 };
 
+/** Retrieve a theme by id, falling back to royal_gold. */
 export const getTheme = (themeId) => themes[themeId] || themes.royal_gold;
 
-export const getThemesByCategory = (category) => {
-  return Object.values(themes).filter(t => t.category === category);
-};
+/** Get all themes belonging to a category. */
+export const getThemesByCategory = (category) =>
+  Object.values(themes).filter((t) => t.category === category);
+
+/** All theme ids, for iteration. */
+export const themeIds = Object.keys(themes);

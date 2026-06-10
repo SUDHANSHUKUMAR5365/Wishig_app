@@ -157,6 +157,21 @@ class TimelineItem(BaseModel):
     description: str
     image_url: Optional[str] = None
 
+# --- Games Config Models ---
+# Designed to be forward-compatible: new games only need a new key in games_config dict.
+# Each game entry: { enabled, order, difficulty, settings: {...game-specific fields} }
+class GameSettings(BaseModel):
+    """Generic per-game settings bag. Accepts any keys for forward compatibility."""
+    model_config = ConfigDict(extra="allow")
+
+class GameEntry(BaseModel):
+    """Configuration for one game in the journey."""
+    model_config = ConfigDict(extra="allow")
+    enabled: bool = False
+    order: int = 0  # lower = earlier in journey
+    difficulty: Optional[str] = None  # easy | medium | hard
+    settings: Optional[dict] = None   # game-specific blob
+
 class EventCreate(BaseModel):
     person_name: str
     occasion_type: str
@@ -174,6 +189,9 @@ class EventCreate(BaseModel):
     lock_pin: Optional[str] = None
     lock_hint: Optional[str] = None
     flip_cards: List[str] = []
+    # games_config: dict keyed by game_id -> GameEntry dict
+    # Example: { "lucky_gift": {"enabled": true, "order": 1, "settings": {"box_count": 9}} }
+    games_config: Optional[dict] = None
 
 class Event(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -194,6 +212,7 @@ class Event(BaseModel):
     lock_pin: Optional[str] = None
     lock_hint: Optional[str] = None
     flip_cards: List[str] = []
+    games_config: Optional[dict] = None
     user_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -216,6 +235,7 @@ class EventUpdate(BaseModel):
     lock_pin: Optional[str] = None
     lock_hint: Optional[str] = None
     flip_cards: Optional[List[str]] = None
+    games_config: Optional[dict] = None
 
 class FileUploadResponse(BaseModel):
     url: str
@@ -395,7 +415,7 @@ async def set_maintenance(body: dict, current_user=Depends(get_current_user)):
 @api_router.get("/upload/signature")
 async def upload_signature(folder: str = "uploads", current_user=Depends(get_current_user)):
     import hashlib, time
-    ALLOWED = ['photos', 'videos', 'voice', 'songs', 'avatars']
+    ALLOWED = ['photos', 'videos', 'voice', 'songs', 'avatars', 'game_assets']
     if folder not in ALLOWED:
         raise HTTPException(status_code=400, detail="Invalid folder")
     timestamp = int(time.time())
