@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Gift, Heart, Camera, QrCode, Cake, Music, PartyPopper, LogIn, UserPlus, LayoutDashboard, LogOut, Lock, Wand2, FlipHorizontal } from 'lucide-react';
+import {
+  Sparkles, Gift, Camera, QrCode, Cake, Music, PartyPopper,
+  LogIn, UserPlus, LayoutDashboard, LogOut, Lock, Wand2,
+  FlipHorizontal, Video, MessageSquare, Star, Heart, Gamepad2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 
@@ -11,15 +15,46 @@ const LandingPage = () => {
   const [isHovered, setIsHovered] = useState(false);
 
   const features = [
-    { icon: Cake, title: 'Interactive Cake', desc: 'Blow candles & make a wish' },
-    { icon: Camera, title: 'Photo Gallery', desc: 'Polaroid-style reveal after balloon game' },
-    { icon: Music, title: 'Music Player', desc: 'Pick your 60s clip with waveform editor' },
-    { icon: Gift, title: 'Balloon Pop Game', desc: 'Pop all 15 to unlock photos' },
-    { icon: Heart, title: '12 Themes', desc: 'Boys, girls & anniversary themes' },
-    { icon: QrCode, title: 'QR Sharing', desc: 'WhatsApp, copy link or download QR' },
-    { icon: Lock, title: 'PIN Lock', desc: 'Protect with a 4-digit secret PIN' },
-    { icon: Wand2, title: 'AI Write', desc: 'Generate messages & flip cards with AI' },
-    { icon: FlipHorizontal, title: 'Flip Cards', desc: '6 reasons why they are special' },
+    { icon: Cake,           title: 'Blow Candles',       desc: 'Interactive cake with candle blowing' },
+    { icon: Lock,           title: 'Secret PIN Unlock',  desc: 'Protect with a 4-digit secret PIN' },
+    { icon: FlipHorizontal, title: 'Memory Flip Cards',  desc: '6 reasons why they are special' },
+    { icon: Gamepad2,       title: 'Interactive Games',  desc: 'Multiple birthday mini-games' },
+    { icon: Sparkles,       title: 'Make A Wish',        desc: 'Type a birthday wish before the reveal' },
+    { icon: Gift,           title: 'Gift Reveal',        desc: 'Animated gift box opening moment' },
+    { icon: Camera,         title: 'Reward Gallery',     desc: 'Polaroid-style photo gallery unlock' },
+    { icon: MessageSquare,  title: 'Secret Message',     desc: 'Heartfelt typewriter love letter' },
+    { icon: Video,          title: 'Video Surprise',     desc: 'Play a personal video message' },
+    { icon: Wand2,          title: 'Multiple Themes',    desc: '12 premium themes for every occasion' },
+  ];
+
+  const games = [
+    { emoji: '🎈', title: 'Balloon Pop',    desc: 'Pop all balloons to unlock rewards' },
+    { emoji: '🎁', title: 'Lucky Gift Box', desc: 'Find the winning gift box surprise' },
+    { emoji: '🎂', title: 'Catch The Cake', desc: 'Catch falling cakes with your basket' },
+    { emoji: '🍰', title: 'Cake Decoration',desc: 'Drag & drop decorations on the cake' },
+    { emoji: '🧠', title: 'Memory Match',   desc: 'Match pairs of birthday cards' },
+    { emoji: '❓', title: 'Birthday Quiz',  desc: 'Answer fun questions about the birthday person' },
+  ];
+
+  const journey = [
+    { emoji: '🎂', label: 'Blow Candles' },
+    { emoji: '🔐', label: 'Enter PIN' },
+    { emoji: '🃏', label: 'Open Memory Cards' },
+    { emoji: '🎮', label: 'Play Games' },
+    { emoji: '✨', label: 'Make A Wish' },
+    { emoji: '🎁', label: 'Open Gift' },
+    { emoji: '📸', label: 'View Memories' },
+    { emoji: '💌', label: 'Read Secret Message' },
+    { emoji: '🎥', label: 'Watch Video' },
+  ];
+
+  const highlights = [
+    { icon: Star,        value: '6',  label: 'Interactive Games' },
+    { icon: Camera,      value: '📸', label: 'Photo Memories',    isEmoji: true },
+    { icon: Music,       value: '🎵', label: 'Background Music',  isEmoji: true },
+    { icon: Video,       value: '🎥', label: 'Video Surprises',   isEmoji: true },
+    { icon: Lock,        value: '🔐', label: 'Secret PIN',        isEmoji: true },
+    { icon: Wand2,       value: '12', label: 'Premium Themes' },
   ];
 
   return (
@@ -37,7 +72,7 @@ const LandingPage = () => {
               <Button size="sm" onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')} className="bg-white/10 hover:bg-white/20 text-white">
                 <LayoutDashboard className="w-4 h-4 mr-1" /> Dashboard
               </Button>
-              <Button size="sm" onClick={() => { logout(); }} variant="outline" className="border-white/10 text-white hover:bg-white/5">
+              <Button size="sm" onClick={() => logout()} variant="outline" className="border-white/10 text-white hover:bg-white/5">
                 <LogOut className="w-4 h-4" />
               </Button>
             </>
@@ -53,33 +88,22 @@ const LandingPage = () => {
           )}
         </div>
       </nav>
+
       {/* Animated background particles */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(30)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute w-1 h-1 bg-[#D4AF37] rounded-full"
-            initial={{ 
-              x: Math.random() * window.innerWidth, 
-              y: Math.random() * window.innerHeight,
-              opacity: 0.3
-            }}
-            animate={{ 
-              y: [null, Math.random() * -200],
-              opacity: [0.3, 0.8, 0.3]
-            }}
-            transition={{ 
-              duration: 3 + Math.random() * 2,
-              repeat: Infinity,
-              repeatType: "reverse"
-            }}
+            initial={{ x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 800), y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 600), opacity: 0.3 }}
+            animate={{ y: [null, Math.random() * -200], opacity: [0.3, 0.8, 0.3] }}
+            transition={{ duration: 3 + Math.random() * 2, repeat: Infinity, repeatType: 'reverse' }}
           />
         ))}
       </div>
 
-      {/* Hero Section */}
+      {/* ── Hero Section ── */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12 pt-24">
-        {/* Logo/Brand */}
         <motion.div
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -87,35 +111,28 @@ const LandingPage = () => {
           className="flex items-center gap-3 mb-8"
         >
           <Sparkles className="w-10 h-10 text-[#D4AF37]" />
-          <span className="font-heading text-2xl sm:text-3xl text-white tracking-wide">
-            Celebration QR
-          </span>
+          <span className="font-heading text-2xl sm:text-3xl text-white tracking-wide">Celebration QR</span>
         </motion.div>
 
-        {/* Main Headline */}
         <motion.h1
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
           className="font-heading text-4xl sm:text-5xl lg:text-7xl text-center text-white mb-6 leading-tight"
         >
-          Create <span className="text-[#D4AF37]">Magical</span>
-          <br />
-          Celebrations
+          Create Interactive<br />
+          <span className="text-[#D4AF37]">Birthday Surprise</span> Websites
         </motion.h1>
 
-        {/* Subtitle */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-[#94A3B8] text-base sm:text-lg text-center max-w-xl mb-10 px-4"
+          className="text-[#94A3B8] text-base sm:text-lg text-center max-w-2xl mb-10 px-4"
         >
-          Create cinematic birthday, anniversary & special occasion experiences.
-          Add photos, music, games & heartfelt messages — share via QR code.
+          Photos, games, music, videos, secret messages, rewards, and unforgettable birthday experiences — all in one QR code.
         </motion.p>
 
-        {/* CTA Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -142,69 +159,177 @@ const LandingPage = () => {
           </Button>
         </motion.div>
 
-        {/* Floating celebration image */}
+        {/* Floating badge strip */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.8 }}
-          className="mt-16 relative"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1 }}
+          className="mt-16 flex flex-wrap justify-center gap-3 max-w-xl"
         >
-          <div className="relative w-72 h-72 sm:w-96 sm:h-96">
-            <motion.img
-              src={process.env.REACT_APP_CELEBRATION_IMAGE}
-              alt="Celebration"
-              className="w-full h-full object-contain float"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0A0F1F] via-transparent to-transparent" />
-          </div>
+          {['🎂 Candles', '🎮 Games', '📸 Photos', '🎵 Music', '🎥 Video', '🔐 PIN Lock'].map((tag) => (
+            <span key={tag} className="glass px-4 py-2 rounded-full text-sm text-[#D4AF37] border border-[#D4AF37]/20">
+              {tag}
+            </span>
+          ))}
         </motion.div>
       </div>
 
-      {/* Features Section */}
+      {/* ── Features Section ── */}
       <div className="relative z-10 py-20 px-4">
-        <motion.h2
+        <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="font-heading text-3xl sm:text-4xl text-center text-white mb-16"
+          className="text-center mb-16"
         >
-          Everything You Need
-        </motion.h2>
+          <h2 className="font-heading text-3xl sm:text-4xl text-white mb-4">Everything In One Experience</h2>
+          <p className="text-[#94A3B8] text-sm max-w-lg mx-auto">Every celebration comes packed with interactive moments designed to delight.</p>
+        </motion.div>
 
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {features.map((feature, index) => (
             <motion.div
               key={feature.title}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              className="glass rounded-2xl p-6 text-center hover:border-[#D4AF37]/30 transition-all duration-300"
+              transition={{ delay: index * 0.07 }}
+              className="glass rounded-2xl p-5 text-center hover:border-[#D4AF37]/40 transition-all duration-300 hover:-translate-y-1"
             >
-              <feature.icon className="w-10 h-10 text-[#D4AF37] mx-auto mb-4" />
-              <h3 className="font-heading text-lg text-white mb-2">{feature.title}</h3>
-              <p className="text-[#94A3B8] text-sm">{feature.desc}</p>
+              <feature.icon className="w-8 h-8 text-[#D4AF37] mx-auto mb-3" />
+              <h3 className="font-heading text-sm text-white mb-1">{feature.title}</h3>
+              <p className="text-[#94A3B8] text-xs">{feature.desc}</p>
             </motion.div>
           ))}
         </div>
       </div>
 
-      {/* How It Works */}
+      {/* ── Games Showcase Section ── */}
       <div className="relative z-10 py-20 px-4 bg-[#131B2F]/50">
-        <motion.h2
+        <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="font-heading text-3xl sm:text-4xl text-center text-white mb-16"
+          className="text-center mb-16"
         >
-          How It Works
-        </motion.h2>
+          <h2 className="font-heading text-3xl sm:text-4xl text-white mb-4">Interactive Birthday Games</h2>
+          <p className="text-[#94A3B8] text-sm max-w-lg mx-auto">Six unique games to make every birthday celebration unforgettable.</p>
+        </motion.div>
+
+        <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-5">
+          {games.map((game, index) => (
+            <motion.div
+              key={game.title}
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ scale: 1.04, y: -4 }}
+              className="glass rounded-2xl p-6 text-center cursor-default border border-white/5 hover:border-[#D4AF37]/30 transition-all duration-300"
+            >
+              <motion.div
+                className="text-4xl mb-3"
+                animate={{ rotate: [0, 5, -5, 0] }}
+                transition={{ duration: 3 + index * 0.5, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                {game.emoji}
+              </motion.div>
+              <h3 className="font-heading text-base text-white mb-2">{game.title}</h3>
+              <p className="text-[#94A3B8] text-xs">{game.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Journey Preview Section ── */}
+      <div className="relative z-10 py-20 px-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <h2 className="font-heading text-3xl sm:text-4xl text-white mb-4">How The Birthday Journey Works</h2>
+          <p className="text-[#94A3B8] text-sm max-w-lg mx-auto">A cinematic step-by-step experience from scan to surprise.</p>
+        </motion.div>
+
+        <div className="max-w-sm mx-auto">
+          {journey.map((step, index) => (
+            <motion.div
+              key={step.label}
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.08 }}
+              className="flex items-center gap-4"
+            >
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center glass border border-[#D4AF37]/30 text-xl gold-glow shrink-0">
+                  {step.emoji}
+                </div>
+                {index < journey.length - 1 && (
+                  <div className="w-px h-8 bg-gradient-to-b from-[#D4AF37]/40 to-transparent mt-1" />
+                )}
+              </div>
+              <p className="font-heading text-white text-base pb-8">{step.label}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Product Highlights Section ── */}
+      <div className="relative z-10 py-20 px-4 bg-[#131B2F]/50">
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <h2 className="font-heading text-3xl sm:text-4xl text-white mb-4">Everything You Get</h2>
+          <p className="text-[#94A3B8] text-sm max-w-lg mx-auto">One link, endless surprises.</p>
+        </motion.div>
+
+        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-5">
+          {[
+            { emoji: '⭐', value: '6', label: 'Interactive Games' },
+            { emoji: '📸', value: '10', label: 'Photo Memories' },
+            { emoji: '🎵', value: '1', label: 'Background Music Track' },
+            { emoji: '🎥', value: '1', label: 'Video Surprise' },
+            { emoji: '🔐', value: '1', label: 'Secret PIN Protection' },
+            { emoji: '🎨', value: '12', label: 'Premium Themes' },
+          ].map((item, index) => (
+            <motion.div
+              key={item.label}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+              className="glass rounded-2xl p-6 text-center hover:border-[#D4AF37]/30 transition-all"
+            >
+              <div className="text-3xl mb-2">{item.emoji}</div>
+              <div className="font-heading text-3xl text-[#D4AF37] mb-1">{item.value}</div>
+              <p className="text-[#94A3B8] text-xs">{item.label}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── How It Works ── */}
+      <div className="relative z-10 py-20 px-4">
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <h2 className="font-heading text-3xl sm:text-4xl text-white mb-4">How It Works</h2>
+        </motion.div>
 
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           {[
-            { num: '01', title: 'Sign Up & Create', desc: 'Register, fill 8 easy steps — name, photos, music, message, theme & PIN' },
-            { num: '02', title: 'Get QR Code', desc: 'Your unique QR is instantly generated and ready to share' },
-            { num: '03', title: 'They Scan & Celebrate', desc: 'Receiver gets a cinematic surprise — cake, games, photos & your message' },
+            { num: '01', title: 'Create Your Celebration',  desc: 'Upload photos, music, messages, themes and games.' },
+            { num: '02', title: 'Generate QR Code',         desc: 'Instantly create your personalized celebration page.' },
+            { num: '03', title: 'Share & Surprise',         desc: 'Send the QR code and let them experience the journey.' },
           ].map((step, index) => (
             <motion.div
               key={step.num}
@@ -224,7 +349,7 @@ const LandingPage = () => {
         </div>
       </div>
 
-      {/* Footer CTA */}
+      {/* ── Final CTA ── */}
       <div className="relative z-10 py-20 px-4 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -234,10 +359,10 @@ const LandingPage = () => {
         >
           <Sparkles className="w-12 h-12 text-[#D4AF37] mx-auto mb-6" />
           <h2 className="font-heading text-2xl sm:text-3xl text-white mb-4">
-            Ready to Create Something Special?
+            Ready To Create An Unforgettable Birthday Experience?
           </h2>
           <p className="text-[#94A3B8] mb-8">
-            Sign up free and make your loved ones feel extraordinary with a personalized cinematic celebration.
+            Create interactive celebrations with games, memories, music, videos and surprises.
           </p>
           <Button
             data-testid="footer-create-btn"

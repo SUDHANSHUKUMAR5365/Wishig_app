@@ -50,18 +50,6 @@ const GAME_REGISTRY = [
     ],
   },
   {
-    id: 'gift_hunt',
-    label: 'Gift Hunt',
-    emoji: '🔍',
-    description: 'Find all hidden gifts on screen',
-    hasDifficulty: true,
-    defaultSettings: { gift_count: 8, completion_message: 'You found them all! 🎊' },
-    settingsFields: [
-      { key: 'gift_count', label: 'Number of hidden gifts', type: 'number', min: 3, max: 15, default: 8 },
-      { key: 'completion_message', label: 'Completion message', type: 'text', default: 'You found them all! 🎊' },
-    ],
-  },
-  {
     id: 'catch_cake',
     label: 'Catch The Cake',
     emoji: '🎂',
@@ -90,6 +78,14 @@ const GAME_REGISTRY = [
     settingsFields: [
       { key: 'completion_message', label: 'Completion message', type: 'text', default: 'Amazing memory! 🌟' },
     ],
+  },
+  {
+    id: 'birthday_quiz',
+    label: 'Birthday Quiz',
+    emoji: '❓',
+    description: 'Answer fun questions about the birthday person',
+    hasDifficulty: false,
+    defaultSettings: { questions: [] },
   },
 ];
 
@@ -162,6 +158,128 @@ const SongPreview = ({ songUrl }) => {
           <span className="text-[#94A3B8] text-xs">{duration ? fmt(duration) : '--:--'}</span>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── BirthdayQuizEditor ──────────────────────────────────────────────────────
+const emptyQuestion = () => ({ question: '', options: ['', ''], correctIndex: null, explanation: '' });
+
+const BirthdayQuizEditor = ({ questions, onChange }) => {
+  const add = () => onChange([...questions, emptyQuestion()]);
+  const remove = (i) => onChange(questions.filter((_, idx) => idx !== i));
+  const move = (i, dir) => {
+    const q = [...questions];
+    const j = i + dir;
+    if (j < 0 || j >= q.length) return;
+    [q[i], q[j]] = [q[j], q[i]];
+    onChange(q);
+  };
+  const update = (i, field, value) => {
+    const q = [...questions];
+    q[i] = { ...q[i], [field]: value };
+    onChange(q);
+  };
+  const updateOption = (qi, oi, value) => {
+    const q = [...questions];
+    const opts = [...q[qi].options];
+    opts[oi] = value;
+    q[qi] = { ...q[qi], options: opts };
+    onChange(q);
+  };
+  const addOption = (qi) => {
+    const q = [...questions];
+    if (q[qi].options.length >= 4) return;
+    q[qi] = { ...q[qi], options: [...q[qi].options, ''] };
+    onChange(q);
+  };
+  const removeOption = (qi, oi) => {
+    const q = [...questions];
+    const opts = q[qi].options.filter((_, idx) => idx !== oi);
+    const correct = q[qi].correctIndex === oi ? null : q[qi].correctIndex > oi ? q[qi].correctIndex - 1 : q[qi].correctIndex;
+    q[qi] = { ...q[qi], options: opts, correctIndex: correct };
+    onChange(q);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-[#94A3B8] text-xs">Questions ({questions.length}/10)</Label>
+        {questions.length < 10 && (
+          <button onClick={add} className="text-xs px-3 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30 transition-colors">
+            + Add Question
+          </button>
+        )}
+      </div>
+
+      {questions.length === 0 && (
+        <p className="text-[#94A3B8] text-xs text-center py-3">No questions yet. Add one above!</p>
+      )}
+
+      {questions.map((q, qi) => (
+        <div key={qi} className="rounded-xl border border-white/10 bg-white/3 p-3 space-y-3">
+          {/* Question header */}
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-0.5 shrink-0">
+              <button onClick={() => move(qi, -1)} disabled={qi === 0} className="text-[#94A3B8] hover:text-white disabled:opacity-20 text-xs leading-none">▲</button>
+              <button onClick={() => move(qi, 1)} disabled={qi === questions.length - 1} className="text-[#94A3B8] hover:text-white disabled:opacity-20 text-xs leading-none">▼</button>
+            </div>
+            <span className="text-[#D4AF37] text-xs font-bold shrink-0">Q{qi + 1}</span>
+            <Input
+              value={q.question}
+              onChange={(e) => update(qi, 'question', e.target.value)}
+              placeholder="Enter question..."
+              className="bg-white/5 border-white/10 text-white h-8 text-xs flex-1"
+            />
+            <button onClick={() => remove(qi)} className="shrink-0 text-red-400 hover:text-red-300">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-2 pl-6">
+            {q.options.map((opt, oi) => (
+              <div key={oi} className="flex items-center gap-2">
+                <button
+                  onClick={() => update(qi, 'correctIndex', q.correctIndex === oi ? null : oi)}
+                  title="Mark as correct answer"
+                  className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${
+                    q.correctIndex === oi ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30'
+                  }`}
+                >
+                  {q.correctIndex === oi && <div className="w-2 h-2 rounded-full bg-[#0A0F1F]" />}
+                </button>
+                <Input
+                  value={opt}
+                  onChange={(e) => updateOption(qi, oi, e.target.value)}
+                  placeholder={`Option ${oi + 1}`}
+                  className="bg-white/5 border-white/10 text-white h-8 text-xs flex-1"
+                />
+                {q.options.length > 2 && (
+                  <button onClick={() => removeOption(qi, oi)} className="shrink-0 text-[#94A3B8] hover:text-red-400">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {q.options.length < 4 && (
+              <button onClick={() => addOption(qi)} className="text-xs text-[#94A3B8] hover:text-white ml-7">
+                + Add option
+              </button>
+            )}
+          </div>
+
+          {/* Explanation */}
+          <div className="pl-6">
+            <Input
+              value={q.explanation}
+              onChange={(e) => update(qi, 'explanation', e.target.value)}
+              placeholder="Explanation (optional)"
+              className="bg-white/5 border-white/10 text-white h-8 text-xs"
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
@@ -327,6 +445,14 @@ const GamesConfigStep = ({ gamesConfig, onChange, uploadFile, uploadProgress, se
                     )}
                   </div>
                 ))}
+
+                {/* Birthday Quiz: questions editor */}
+                {game.id === 'birthday_quiz' && (
+                  <BirthdayQuizEditor
+                    questions={cfg.settings?.questions || []}
+                    onChange={(questions) => updateSetting('birthday_quiz', 'questions', questions)}
+                  />
+                )}
 
                 {/* Memory Match: photo upload */}
                 {game.id === 'memory_match' && (
