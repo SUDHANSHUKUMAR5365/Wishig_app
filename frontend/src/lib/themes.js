@@ -318,6 +318,16 @@ export const themes = {
   },
 };
 
+/** Theme IDs accessible to free users (2 boys, 2 girls, 1 anniversary). */
+export const FREE_THEMES = new Set([
+  'neon_cyber', 'royal_gold',
+  'pink_pastel', 'floral_elegant',
+  'romantic_red',
+]);
+
+/** Game IDs accessible to free users. */
+export const FREE_GAMES = new Set(['balloon_pop']);
+
 /** Retrieve a theme by id, falling back to royal_gold. */
 export const getTheme = (themeId) => themes[themeId] || themes.royal_gold;
 

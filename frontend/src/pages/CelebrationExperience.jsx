@@ -24,6 +24,19 @@ import { CSS } from '@dnd-kit/utilities';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// ─── User Badges ─────────────────────────────────────────────────────────────
+const PremiumBadge = () => (
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40">
+    <Check className="w-3 h-3" /> Premium
+  </span>
+);
+
+const VIPBadge = () => (
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-400/40">
+    👑 VIP Friend
+  </span>
+);
+
 // ─── LockScreen ──────────────────────────────────────────────────────────────
 const LockScreen = ({ hint, correctPin, onUnlock, theme }) => {
   const [pin, setPin] = useState('');
@@ -417,98 +430,7 @@ const LuckyGiftBox = ({ settings, theme, onComplete }) => {
   );
 };
 
-// ─── Game 3: GiftHunt ─────────────────────────────────────────────────────────
-const GIFT_SIZES = { easy: 42, medium: 30, hard: 22 };
-const HUNT_EMOJIS = ['🎁','🎀','🎊','💝','🌟','🎪','🧧','🪄'];
-
-const GiftHunt = ({ settings, difficulty, theme, onComplete }) => {
-  const giftCount = Math.min(15, Math.max(3, settings?.gift_count || 8));
-  const doneMsg = settings?.completion_message || 'You found them all! 🎊';
-  const fontSize = GIFT_SIZES[difficulty] || GIFT_SIZES.medium;
-
-  const [gifts] = useState(() =>
-    Array.from({ length: giftCount }, (_, i) => ({
-      id: i,
-      x: 6 + Math.random() * 83,
-      y: 8 + Math.random() * 78,
-      emoji: HUNT_EMOJIS[i % HUNT_EMOJIS.length],
-      animDur: 1.8 + Math.random() * 2,
-      animDelay: Math.random() * 1.5,
-    }))
-  );
-  const [found, setFound] = useState([]);
-  const [bursts, setBursts] = useState([]);
-  const [done, setDone] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-
-  const findGift = (id, e) => {
-    e.preventDefault();
-    if (found.includes(id) || done) return;
-    const next = [...found, id];
-    setFound(next);
-    setBursts(prev => [...prev, { id: Date.now() + id, x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().top }]);
-    if (next.length === giftCount) {
-      setDone(true);
-      setShowConfetti(true);
-      setTimeout(onComplete, 2200);
-    }
-  };
-
-  const pct = (found.length / giftCount) * 100;
-
-  return (
-    <div className="rounded-xl overflow-hidden" style={{ border: `1.5px solid ${theme.colors.primary}25` }}>
-      {showConfetti && <ReactConfetti recycle={false} numberOfPieces={250} colors={[theme.colors.primary, theme.colors.secondary, '#FFD700']} style={{ position: 'fixed', top: 0, left: 0, zIndex: 999, pointerEvents: 'none' }} />}
-
-      {/* Header + progress */}
-      <div className="px-4 py-3" style={{ backgroundColor: theme.colors.primary + '18' }}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="font-heading text-sm" style={{ color: theme.colors.primary }}>🔍 Gift Hunt</span>
-          <span className="text-sm font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: theme.colors.primary + '25', color: theme.colors.text }}>{found.length}/{giftCount}</span>
-        </div>
-        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: theme.colors.text + '15' }}>
-          <motion.div className="h-full rounded-full" style={{ backgroundColor: theme.colors.primary }}
-            animate={{ width: `${pct}%` }} transition={{ duration: 0.35 }} />
-        </div>
-      </div>
-
-      {/* Arena */}
-      <div className="relative" style={{
-        height: '62vw', maxHeight: '400px',
-        background: `linear-gradient(135deg, ${theme.colors.background} 60%, ${theme.colors.primary}10)`,
-        touchAction: 'manipulation', overflow: 'hidden',
-      }}>
-        {/* Hint watermark */}
-        {found.length === 0 && (
-          <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center pointer-events-none select-none text-sm"
-            style={{ color: theme.colors.text + '25' }}>Tap the hidden gifts!</p>
-        )}
-
-        {gifts.map(g => !found.includes(g.id) && (
-          <motion.button
-            key={g.id}
-            className="absolute select-none focus:outline-none"
-            style={{ left: `${g.x}%`, top: `${g.y}%`, fontSize: `${fontSize}px`, lineHeight: 1, transform: 'translate(-50%,-50%)', touchAction: 'manipulation' }}
-            animate={{ y: [0, -7, 0], rotate: [-4, 4, -4] }}
-            transition={{ duration: g.animDur, delay: g.animDelay, repeat: Infinity, ease: 'easeInOut' }}
-            onClick={(e) => findGift(g.id, e)}
-            whileTap={{ scale: 0.4, opacity: 0 }}
-            aria-label={`Find gift ${g.id + 1}`}
-          >{g.emoji}</motion.button>
-        ))}
-
-        {done && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ backgroundColor: theme.colors.background + 'D8' }}>
-            <div className="text-5xl mb-3">🎊</div>
-            <p className="font-heading text-xl px-4 text-center" style={{ color: theme.colors.primary }}>{doneMsg}</p>
-          </motion.div>
-        )}
-      </div>
-    </div>
-  );
-};
+// ─── Game 3 (removed: GiftHunt) — old events with gift_hunt skipped silently ─
 
 // ─── Game 4: CatchTheCake ────────────────────────────────────────────────────
 // Uses refs for all mutable game state to avoid stale-closure bugs in RAF.
@@ -980,6 +902,140 @@ const MemoryMatch = ({ settings, difficulty, theme, onComplete }) => {
   );
 };
 
+// ─── GiftHuntSkip — silently advances for old events that had gift_hunt ──────────
+const GiftHuntSkip = ({ onComplete }) => {
+  useEffect(() => { onComplete(); }, [onComplete]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+};
+
+// ─── Game 7: BirthdayQuiz ────────────────────────────────────────────────────────
+const BirthdayQuiz = ({ settings, theme, onComplete }) => {
+  const questions = settings?.questions || [];
+  const [current, setCurrent] = useState(0);
+  const [selected, setSelected] = useState(null);
+  const [score, setScore] = useState(0);
+  const [answered, setAnswered] = useState(false);
+  const [done, setDone] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    if (questions.length === 0) { onComplete(); }
+  }, [questions.length, onComplete]);
+
+  if (questions.length === 0) return null;
+
+  const q = questions[current];
+  const pct = Math.round(((current + (answered ? 1 : 0)) / questions.length) * 100);
+
+  const choose = (i) => {
+    if (answered) return;
+    setSelected(i);
+    setAnswered(true);
+    if (q.correctIndex != null && i === q.correctIndex) {
+      setScore(s => s + 1);
+      confetti({ particleCount: 60, spread: 60, origin: { y: 0.6 }, colors: [theme.colors.primary, '#FFD700'] });
+    }
+  };
+
+  const next = () => {
+    if (current + 1 >= questions.length) {
+      setDone(true);
+      setShowConfetti(true);
+      setTimeout(onComplete, 2800);
+    } else {
+      setCurrent(c => c + 1);
+      setSelected(null);
+      setAnswered(false);
+    }
+  };
+
+  const optionStyle = (i) => {
+    if (!answered) return {
+      backgroundColor: theme.colors.primary + '15',
+      border: `1.5px solid ${theme.colors.primary}30`,
+      color: theme.colors.text,
+    };
+    const isCorrect = q.correctIndex != null && i === q.correctIndex;
+    const isWrong = selected === i && !isCorrect;
+    if (isCorrect) return { backgroundColor: '#16a34a30', border: '1.5px solid #16a34a', color: theme.colors.text };
+    if (isWrong)  return { backgroundColor: '#dc262630', border: '1.5px solid #dc2626', color: theme.colors.text };
+    return { backgroundColor: theme.colors.primary + '08', border: `1.5px solid ${theme.colors.text}15`, color: theme.colors.text + '70' };
+  };
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: `1.5px solid ${theme.colors.primary}25` }}>
+      {showConfetti && <ReactConfetti recycle={false} numberOfPieces={250} colors={[theme.colors.primary, theme.colors.secondary, '#FFD700']} style={{ position: 'fixed', top: 0, left: 0, zIndex: 999, pointerEvents: 'none' }} />}
+
+      {/* Header */}
+      <div className="px-4 py-3" style={{ backgroundColor: theme.colors.primary + '18' }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="font-heading text-sm" style={{ color: theme.colors.primary }}>❓ Birthday Quiz</span>
+          <span className="text-xs" style={{ color: theme.colors.text + '70' }}>{current + 1} / {questions.length}</span>
+        </div>
+        <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: theme.colors.text + '15' }}>
+          <motion.div className="h-full rounded-full" style={{ backgroundColor: theme.colors.primary }}
+            animate={{ width: `${pct}%` }} transition={{ duration: 0.3 }} />
+        </div>
+      </div>
+
+      <div className="p-5" style={{ background: `linear-gradient(135deg, ${theme.colors.background}, ${theme.colors.primary}06)` }}>
+        {!done ? (
+          <AnimatePresence mode="wait">
+            <motion.div key={current} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.28 }}>
+              <p className="font-heading text-lg mb-5 text-center" style={{ color: theme.colors.text }}>{q.question}</p>
+              <div className="space-y-3">
+                {q.options.map((opt, i) => (
+                  <motion.button
+                    key={i}
+                    onClick={() => choose(i)}
+                    disabled={answered}
+                    whileTap={!answered ? { scale: 0.97 } : {}}
+                    className="w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                    style={optionStyle(i)}
+                  >
+                    <span className="mr-2" style={{ color: theme.colors.primary }}>{'ABCD'[i]}.</span> {opt}
+                    {answered && q.correctIndex === i && <span className="float-right">✅</span>}
+                    {answered && selected === i && q.correctIndex !== i && <span className="float-right">❌</span>}
+                  </motion.button>
+                ))}
+              </div>
+
+              {answered && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4">
+                  {q.explanation ? (
+                    <p className="text-xs rounded-xl px-4 py-3 mb-3" style={{ backgroundColor: theme.colors.primary + '15', color: theme.colors.text + 'CC' }}>
+                      💡 {q.explanation}
+                    </p>
+                  ) : null}
+                  <button
+                    onClick={next}
+                    className="w-full py-3 rounded-xl font-bold text-sm"
+                    style={{ backgroundColor: theme.colors.primary, color: theme.colors.background }}
+                  >
+                    {current + 1 < questions.length ? 'Next Question →' : 'Finish Quiz!'}
+                  </button>
+                </motion.div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        ) : (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-4">
+            <div className="text-5xl mb-3">🏆</div>
+            <p className="font-heading text-xl mb-2" style={{ color: theme.colors.primary }}>
+              {score === questions.length ? 'Perfect Score!' : score >= questions.length / 2 ? 'Great Job!' : 'Nice Try!'}
+            </p>
+            {questions.some(q => q.correctIndex != null) && (
+              <p className="text-sm" style={{ color: theme.colors.text + '80' }}>
+                You scored {score} / {questions.filter(q => q.correctIndex != null).length}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── Game Flow Engine ─────────────────────────────────────────────────────────
 // Builds an ordered list of enabled games from games_config.
 // Each entry: { id, settings, difficulty }
@@ -1050,7 +1106,7 @@ const GameFlowEngine = ({ gamesConfig, theme, onAllComplete }) => {
           <LuckyGiftBox settings={current.settings} theme={theme} onComplete={advance} />
         )}
         {current.id === 'gift_hunt' && (
-          <GiftHunt settings={current.settings} theme={theme} onComplete={advance} />
+          <GiftHuntSkip onComplete={advance} />
         )}
         {current.id === 'catch_cake' && (
           <CatchTheCake settings={current.settings} difficulty={current.difficulty} theme={theme} onComplete={advance} />
@@ -1060,6 +1116,9 @@ const GameFlowEngine = ({ gamesConfig, theme, onAllComplete }) => {
         )}
         {current.id === 'memory_match' && (
           <MemoryMatch settings={current.settings} difficulty={current.difficulty} theme={theme} onComplete={advance} />
+        )}
+        {current.id === 'birthday_quiz' && (
+          <BirthdayQuiz settings={current.settings} theme={theme} onComplete={advance} />
         )}
       </motion.div>
     </AnimatePresence>
@@ -1776,7 +1835,7 @@ const SpecialNote = ({ note, theme }) => {
 const CelebrationExperience = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { token, user } = useAuth();
+  const { token, user, isPremium, isVip } = useAuth();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -1895,7 +1954,13 @@ const CelebrationExperience = () => {
       )}
 
       {/* Auth bar */}
-      <div className="fixed top-3 right-3 z-50">
+      <div className="fixed top-3 right-3 z-50 flex items-center gap-2">
+        {token && (isPremium || isVip) && (
+          <div className="flex gap-1">
+            {isPremium && <PremiumBadge />}
+            {isVip && <VIPBadge />}
+          </div>
+        )}
         {token ? (
           <Button size="sm" onClick={() => navigate('/dashboard')} className="bg-black/40 hover:bg-black/60 text-white backdrop-blur border border-white/10">
             <Sparkles className="w-3 h-3 mr-1 text-[#D4AF37]" /> {user?.name?.split(' ')[0]}

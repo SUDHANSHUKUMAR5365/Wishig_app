@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Camera, Loader2, Check, User, Phone, FileText, Mail } from 'lucide-react';
+import { ChevronLeft, Camera, Loader2, Check, User, Phone, FileText, Mail, Crown, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,9 +12,21 @@ import { useAuth } from '@/lib/auth';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+const PremiumBadge = () => (
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40">
+    <Check className="w-3 h-3" /> Premium
+  </span>
+);
+
+const VIPBadge = () => (
+  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-400/40">
+    👑 VIP Friend
+  </span>
+);
+
 const ProfilePage = () => {
   const navigate = useNavigate();
-  const { token, user, updateUser } = useAuth();
+  const { token, user, updateUser, isPremium, isVip } = useAuth();
   const avatarInputRef = useRef(null);
 
   const [form, setForm] = useState({ name: '', mobile: '', bio: '', avatar_url: '' });
@@ -109,6 +121,21 @@ const ProfilePage = () => {
             </div>
             <p className="text-white font-heading text-xl">{form.name || 'Your Name'}</p>
             <p className="text-[#94A3B8] text-sm">{user?.email}</p>
+            {(isPremium || isVip) && (
+              <div className="flex items-center gap-2 mt-2">
+                {isPremium && <PremiumBadge />}
+                {isVip && <VIPBadge />}
+              </div>
+            )}
+            {!isPremium && (
+              <button
+                onClick={() => navigate('/premium')}
+                className="mt-3 flex items-center gap-2 px-4 py-2 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:bg-[#D4AF37]/20 transition-colors"
+              >
+                <Crown className="w-4 h-4 text-[#D4AF37]" />
+                <span className="text-[#D4AF37] text-xs font-medium">Upgrade to Premium</span>
+              </button>
+            )}
           </div>
 
           {/* Fields */}
@@ -159,6 +186,14 @@ const ProfilePage = () => {
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
               {saving ? 'Saving...' : 'Save Profile'}
             </Button>
+
+            <button
+              onClick={() => navigate('/support')}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-white/10 text-[#94A3B8] hover:text-white hover:border-white/20 transition-colors text-sm"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Help &amp; Support
+            </button>
           </div>
         </motion.div>
 

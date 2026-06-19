@@ -5,7 +5,7 @@ import {
   ChevronLeft, ChevronRight, User, Calendar, Image, Video,
   MessageSquare, Mic, Music, Palette, Check, Loader2, Upload,
   X, Sparkles, Copy, ExternalLink, Heart, Wand2,
-  Play, Pause, Gamepad2, GripVertical, ToggleLeft, ToggleRight,
+  Play, Pause, Gamepad2, GripVertical, ToggleLeft, ToggleRight, Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,13 +14,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { getThemesByCategory } from '@/lib/themes';
+import { getThemesByCategory, FREE_THEMES, FREE_GAMES } from '@/lib/themes';
 import { QRCodeSVG } from 'qrcode.react';
 import axios from 'axios';
 import { useAuth } from '@/lib/auth';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const APP_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+
+const FREE_PHOTO_LIMIT = 4;
+const PREMIUM_PHOTO_LIMIT = 25;
 
 // ─── Game registry — single source of truth for available games ───────────────
 // To add a new game: add one entry here. Nothing else needs changing.
@@ -47,18 +50,6 @@ const GAME_REGISTRY = [
     settingsFields: [
       { key: 'box_count', label: 'Number of boxes', type: 'number', min: 4, max: 16, default: 9 },
       { key: 'winning_message', label: 'Winning message', type: 'text', default: 'You found the gift! 🎉' },
-    ],
-  },
-  {
-    id: 'gift_hunt',
-    label: 'Gift Hunt',
-    emoji: '🔍',
-    description: 'Find all hidden gifts on screen',
-    hasDifficulty: true,
-    defaultSettings: { gift_count: 8, completion_message: 'You found them all! 🎊' },
-    settingsFields: [
-      { key: 'gift_count', label: 'Number of hidden gifts', type: 'number', min: 3, max: 15, default: 8 },
-      { key: 'completion_message', label: 'Completion message', type: 'text', default: 'You found them all! 🎊' },
     ],
   },
   {
@@ -90,6 +81,14 @@ const GAME_REGISTRY = [
     settingsFields: [
       { key: 'completion_message', label: 'Completion message', type: 'text', default: 'Amazing memory! 🌟' },
     ],
+  },
+  {
+    id: 'birthday_quiz',
+    label: 'Birthday Quiz',
+    emoji: '❓',
+    description: 'Answer fun questions about the birthday person',
+    hasDifficulty: false,
+    defaultSettings: { questions: [] },
   },
 ];
 
@@ -166,12 +165,138 @@ const SongPreview = ({ songUrl }) => {
   );
 };
 
+// ─── BirthdayQuizEditor ──────────────────────────────────────────────────────
+const emptyQuestion = () => ({ question: '', options: ['', ''], correctIndex: null, explanation: '' });
+
+const BirthdayQuizEditor = ({ questions, onChange }) => {
+  const add = () => onChange([...questions, emptyQuestion()]);
+  const remove = (i) => onChange(questions.filter((_, idx) => idx !== i));
+  const move = (i, dir) => {
+    const q = [...questions];
+    const j = i + dir;
+    if (j < 0 || j >= q.length) return;
+    [q[i], q[j]] = [q[j], q[i]];
+    onChange(q);
+  };
+  const update = (i, field, value) => {
+    const q = [...questions];
+    q[i] = { ...q[i], [field]: value };
+    onChange(q);
+  };
+  const updateOption = (qi, oi, value) => {
+    const q = [...questions];
+    const opts = [...q[qi].options];
+    opts[oi] = value;
+    q[qi] = { ...q[qi], options: opts };
+    onChange(q);
+  };
+  const addOption = (qi) => {
+    const q = [...questions];
+    if (q[qi].options.length >= 4) return;
+    q[qi] = { ...q[qi], options: [...q[qi].options, ''] };
+    onChange(q);
+  };
+  const removeOption = (qi, oi) => {
+    const q = [...questions];
+    const opts = q[qi].options.filter((_, idx) => idx !== oi);
+    const correct = q[qi].correctIndex === oi ? null : q[qi].correctIndex > oi ? q[qi].correctIndex - 1 : q[qi].correctIndex;
+    q[qi] = { ...q[qi], options: opts, correctIndex: correct };
+    onChange(q);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label className="text-[#94A3B8] text-xs">Questions ({questions.length}/10)</Label>
+        {questions.length < 10 && (
+          <button onClick={add} className="text-xs px-3 py-1 rounded-lg bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37]/30 transition-colors">
+            + Add Question
+          </button>
+        )}
+      </div>
+
+      {questions.length === 0 && (
+        <p className="text-[#94A3B8] text-xs text-center py-3">No questions yet. Add one above!</p>
+      )}
+
+      {questions.map((q, qi) => (
+        <div key={qi} className="rounded-xl border border-white/10 bg-white/3 p-3 space-y-3">
+          {/* Question header */}
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-0.5 shrink-0">
+              <button onClick={() => move(qi, -1)} disabled={qi === 0} className="text-[#94A3B8] hover:text-white disabled:opacity-20 text-xs leading-none">▲</button>
+              <button onClick={() => move(qi, 1)} disabled={qi === questions.length - 1} className="text-[#94A3B8] hover:text-white disabled:opacity-20 text-xs leading-none">▼</button>
+            </div>
+            <span className="text-[#D4AF37] text-xs font-bold shrink-0">Q{qi + 1}</span>
+            <Input
+              value={q.question}
+              onChange={(e) => update(qi, 'question', e.target.value)}
+              placeholder="Enter question..."
+              className="bg-white/5 border-white/10 text-white h-8 text-xs flex-1"
+            />
+            <button onClick={() => remove(qi)} className="shrink-0 text-red-400 hover:text-red-300">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Options */}
+          <div className="space-y-2 pl-6">
+            {q.options.map((opt, oi) => (
+              <div key={oi} className="flex items-center gap-2">
+                <button
+                  onClick={() => update(qi, 'correctIndex', q.correctIndex === oi ? null : oi)}
+                  title="Mark as correct answer"
+                  className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${
+                    q.correctIndex === oi ? 'border-[#D4AF37] bg-[#D4AF37]' : 'border-white/30'
+                  }`}
+                >
+                  {q.correctIndex === oi && <div className="w-2 h-2 rounded-full bg-[#0A0F1F]" />}
+                </button>
+                <Input
+                  value={opt}
+                  onChange={(e) => updateOption(qi, oi, e.target.value)}
+                  placeholder={`Option ${oi + 1}`}
+                  className="bg-white/5 border-white/10 text-white h-8 text-xs flex-1"
+                />
+                {q.options.length > 2 && (
+                  <button onClick={() => removeOption(qi, oi)} className="shrink-0 text-[#94A3B8] hover:text-red-400">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {q.options.length < 4 && (
+              <button onClick={() => addOption(qi)} className="text-xs text-[#94A3B8] hover:text-white ml-7">
+                + Add option
+              </button>
+            )}
+          </div>
+
+          {/* Explanation */}
+          <div className="pl-6">
+            <Input
+              value={q.explanation}
+              onChange={(e) => update(qi, 'explanation', e.target.value)}
+              placeholder="Explanation (optional)"
+              className="bg-white/5 border-white/10 text-white h-8 text-xs"
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ─── GamesConfigStep ──────────────────────────────────────────────────────────
 // Renders the Games configuration step (step 9 in wizard).
-const GamesConfigStep = ({ gamesConfig, onChange, uploadFile, uploadProgress, setUploadProgress }) => {
+const GamesConfigStep = ({ gamesConfig, onChange, uploadFile, uploadProgress, setUploadProgress, isPremium }) => {
   const memoryInputRef = useRef(null);
 
   const toggleGame = (id) => {
+    if (!isPremium && !FREE_GAMES.has(id)) {
+      toast.error('This game is available for Premium members.');
+      return;
+    }
     onChange(prev => ({
       ...prev,
       [id]: { ...prev[id], enabled: !prev[id].enabled },
@@ -241,10 +366,11 @@ const GamesConfigStep = ({ gamesConfig, onChange, uploadFile, uploadProgress, se
 
       {sorted.map((game, idx) => {
         const cfg = gamesConfig[game.id] || { enabled: false, order: idx, difficulty: 'medium', settings: {} };
+        const locked = !isPremium && !FREE_GAMES.has(game.id);
         return (
           <div
             key={game.id}
-            className={`rounded-xl border transition-all ${cfg.enabled ? 'border-[#D4AF37]/40 bg-[#D4AF37]/5' : 'border-white/10 bg-white/3'}`}
+            className={`rounded-xl border transition-all ${cfg.enabled ? 'border-[#D4AF37]/40 bg-[#D4AF37]/5' : locked ? 'border-white/5 opacity-60' : 'border-white/10 bg-white/3'}`}
           >
             {/* Header row */}
             <div className="flex items-center gap-3 p-4">
@@ -267,8 +393,11 @@ const GamesConfigStep = ({ gamesConfig, onChange, uploadFile, uploadProgress, se
               <span className="text-2xl select-none">{game.emoji}</span>
 
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium text-sm">{game.label}</p>
-                <p className="text-[#94A3B8] text-xs truncate">{game.description}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-white font-medium text-sm">{game.label}</p>
+                  {locked && <Lock className="w-3 h-3 text-[#D4AF37]" />}
+                </div>
+                <p className="text-[#94A3B8] text-xs truncate">{locked ? 'Premium only' : game.description}</p>
               </div>
 
               {/* Toggle */}
@@ -327,6 +456,14 @@ const GamesConfigStep = ({ gamesConfig, onChange, uploadFile, uploadProgress, se
                     )}
                   </div>
                 ))}
+
+                {/* Birthday Quiz: questions editor */}
+                {game.id === 'birthday_quiz' && (
+                  <BirthdayQuizEditor
+                    questions={cfg.settings?.questions || []}
+                    onChange={(questions) => updateSetting('birthday_quiz', 'questions', questions)}
+                  />
+                )}
 
                 {/* Memory Match: photo upload */}
                 {game.id === 'memory_match' && (
@@ -403,7 +540,7 @@ const occasionTypes = [
 // ─── CreateEvent ──────────────────────────────────────────────────────────────
 const CreateEvent = () => {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user, isPremium, isVip } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -509,8 +646,12 @@ const CreateEvent = () => {
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    const remaining = 10 - formData.photos.length;
-    if (remaining <= 0) { toast.error('Maximum 10 photos allowed'); return; }
+    const photoLimit = isPremium ? PREMIUM_PHOTO_LIMIT : FREE_PHOTO_LIMIT;
+    const remaining = photoLimit - formData.photos.length;
+    if (remaining <= 0) {
+      toast.error(isPremium ? `Maximum ${photoLimit} photos allowed` : `Free plan allows up to ${FREE_PHOTO_LIMIT} photos. Upgrade to Premium for ${PREMIUM_PHOTO_LIMIT} photos.`);
+      return;
+    }
     const toUpload = files.slice(0, remaining);
     if (files.length > remaining) toast.warning(`Only ${remaining} more photo(s) allowed.`);
     setUploadProgress(prev => ({ ...prev, photos: 'uploading' }));
@@ -676,25 +817,31 @@ const CreateEvent = () => {
         );
       }
 
-      case 3:
+      case 3: {
+        const photoLimit = isPremium ? PREMIUM_PHOTO_LIMIT : FREE_PHOTO_LIMIT;
         return (
           <div className="space-y-6">
+            {!isPremium && (
+              <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg px-4 py-2 text-xs text-[#D4AF37]">
+                Free plan: up to {FREE_PHOTO_LIMIT} photos. <span className="text-white/60">Upgrade to Premium for {PREMIUM_PHOTO_LIMIT} photos.</span>
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <Label className="text-white">Upload Photos</Label>
-                <span className={`text-sm font-medium ${formData.photos.length >= 10 ? 'text-red-400' : 'text-[#94A3B8]'}`}>{formData.photos.length}/10</span>
+                <span className={`text-sm font-medium ${formData.photos.length >= photoLimit ? 'text-red-400' : 'text-[#94A3B8]'}`}>{formData.photos.length}/{photoLimit}</span>
               </div>
               <div
-                onClick={() => formData.photos.length < 10 && photoInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${formData.photos.length >= 10 ? 'border-red-500/30 cursor-not-allowed opacity-50' : 'border-white/20 cursor-pointer hover:border-[#D4AF37]/50'}`}
+                onClick={() => formData.photos.length < photoLimit && photoInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${formData.photos.length >= photoLimit ? 'border-red-500/30 cursor-not-allowed opacity-50' : 'border-white/20 cursor-pointer hover:border-[#D4AF37]/50'}`}
               >
                 {uploadProgress.photos === 'uploading' ? (
                   <Loader2 className="w-12 h-12 text-[#D4AF37] mx-auto animate-spin" />
                 ) : (
                   <>
                     <Upload className="w-12 h-12 text-[#94A3B8] mx-auto mb-3" />
-                    <p className="text-white mb-1">{formData.photos.length >= 10 ? 'Maximum photos reached' : 'Click to upload photos'}</p>
-                    <p className="text-[#94A3B8] text-sm">PNG, JPG up to 10MB each · Max 10 photos</p>
+                    <p className="text-white mb-1">{formData.photos.length >= photoLimit ? 'Maximum photos reached' : 'Click to upload photos'}</p>
+                    <p className="text-[#94A3B8] text-sm">PNG, JPG up to 10MB each · Max {photoLimit} photos</p>
                   </>
                 )}
               </div>
@@ -714,20 +861,29 @@ const CreateEvent = () => {
             )}
           </div>
         );
+      }
 
       case 4:
         return (
           <div className="space-y-6">
             <Label className="text-white mb-3 block">Upload Video (Optional)</Label>
-            <div onClick={() => videoInputRef.current?.click()} className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-[#D4AF37]/50 transition-colors">
-              {uploadProgress.video === 'uploading' ? (
-                <Loader2 className="w-12 h-12 text-[#D4AF37] mx-auto animate-spin" />
-              ) : formData.video_url ? (
-                <div className="text-[#D4AF37]"><Check className="w-12 h-12 mx-auto mb-2" /><p>Video uploaded!</p></div>
-              ) : (
-                <><Video className="w-12 h-12 text-[#94A3B8] mx-auto mb-3" /><p className="text-white mb-1">Click to upload video</p><p className="text-[#94A3B8] text-sm">MP4, MOV up to 100MB</p></>
-              )}
-            </div>
+            {!isPremium ? (
+              <div className="border-2 border-dashed border-white/10 rounded-xl p-8 text-center opacity-60">
+                <Lock className="w-12 h-12 text-[#94A3B8] mx-auto mb-3" />
+                <p className="text-white mb-1">Video uploads are available for Premium members.</p>
+                <p className="text-[#D4AF37] text-sm">Upgrade to Premium to unlock videos.</p>
+              </div>
+            ) : (
+              <div onClick={() => videoInputRef.current?.click()} className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-[#D4AF37]/50 transition-colors">
+                {uploadProgress.video === 'uploading' ? (
+                  <Loader2 className="w-12 h-12 text-[#D4AF37] mx-auto animate-spin" />
+                ) : formData.video_url ? (
+                  <div className="text-[#D4AF37]"><Check className="w-12 h-12 mx-auto mb-2" /><p>Video uploaded!</p></div>
+                ) : (
+                  <><Video className="w-12 h-12 text-[#94A3B8] mx-auto mb-3" /><p className="text-white mb-1">Click to upload video</p><p className="text-[#94A3B8] text-sm">MP4, MOV up to 100MB</p></>
+                )}
+              </div>
+            )}
             <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoUpload} className="hidden" data-testid="video-upload-input" />
           </div>
         );
@@ -855,31 +1011,47 @@ const CreateEvent = () => {
         return (
           <div className="space-y-6">
             <Label className="text-white mb-4 block">Select Theme</Label>
+            {!isPremium && (
+              <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-lg px-4 py-2 text-xs text-[#D4AF37]">
+                Free plan includes 2 Boys, 2 Girls, 1 Anniversary theme. <span className="text-white/60">Upgrade for all themes.</span>
+              </div>
+            )}
             {['boys', 'girls', 'anniversary'].map((category) => (
               <div key={category} className="mb-6">
                 <p className="text-[#94A3B8] text-sm uppercase tracking-wider mb-3">
                   {category === 'boys' ? 'For Boys' : category === 'girls' ? 'For Girls' : 'Anniversary'}
                 </p>
                 <div className="grid grid-cols-2 gap-3">
-                  {getThemesByCategory(category).map((theme) => (
-                    <button
-                      key={theme.id}
-                      data-testid={`theme-${theme.id}`}
-                      onClick={() => setFormData(prev => ({ ...prev, theme: theme.id }))}
-                      className={`relative rounded-xl overflow-hidden aspect-video transition-all duration-300 ${formData.theme === theme.id ? 'ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-[#0A0F1F]' : 'hover:scale-105'}`}
-                    >
-                      <div className="absolute inset-0" style={{ backgroundColor: theme.colors.background }}>
-                        <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${theme.colors.primary}20, ${theme.colors.secondary}20)` }}>
-                          <span className="font-bold text-sm" style={{ color: theme.colors.primary }}>{theme.name}</span>
+                  {getThemesByCategory(category).map((theme) => {
+                    const locked = !isPremium && !FREE_THEMES.has(theme.id);
+                    return (
+                      <button
+                        key={theme.id}
+                        data-testid={`theme-${theme.id}`}
+                        onClick={() => {
+                          if (locked) { toast.error('This theme is available for Premium members.'); return; }
+                          setFormData(prev => ({ ...prev, theme: theme.id }));
+                        }}
+                        className={`relative rounded-xl overflow-hidden aspect-video transition-all duration-300 ${formData.theme === theme.id ? 'ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-[#0A0F1F]' : locked ? 'opacity-50' : 'hover:scale-105'}`}
+                      >
+                        <div className="absolute inset-0" style={{ backgroundColor: theme.colors.background }}>
+                          <div className="absolute inset-0 flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${theme.colors.primary}20, ${theme.colors.secondary}20)` }}>
+                            <span className="font-bold text-sm" style={{ color: theme.colors.primary }}>{theme.name}</span>
+                          </div>
                         </div>
-                      </div>
-                      {formData.theme === theme.id && (
-                        <div className="absolute top-2 right-2 w-6 h-6 bg-[#D4AF37] rounded-full flex items-center justify-center">
-                          <Check className="w-4 h-4 text-[#0A0F1F]" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+                        {locked && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <Lock className="w-6 h-6 text-[#D4AF37]" />
+                          </div>
+                        )}
+                        {formData.theme === theme.id && (
+                          <div className="absolute top-2 right-2 w-6 h-6 bg-[#D4AF37] rounded-full flex items-center justify-center">
+                            <Check className="w-4 h-4 text-[#0A0F1F]" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -894,6 +1066,7 @@ const CreateEvent = () => {
             uploadFile={uploadFile}
             uploadProgress={uploadProgress}
             setUploadProgress={setUploadProgress}
+            isPremium={isPremium}
           />
         );
 

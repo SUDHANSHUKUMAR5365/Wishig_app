@@ -36,9 +36,15 @@ const AuthPage = () => {
         ? { email: form.email, password: form.password }
         : { name: form.name, email: form.email, password: form.password };
       const res = await axios.post(`${API}${endpoint}`, payload);
-      login(res.data.token, res.data.user);
-      toast.success(`Welcome${res.data.user.name ? ', ' + res.data.user.name : ''}!`);
-      navigate(res.data.user.role === 'admin' ? '/admin' : '/dashboard');
+      // Fetch full profile to get premium/vip fields
+      let fullUser = res.data.user;
+      try {
+        const profile = await axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${res.data.token}` } });
+        fullUser = { ...fullUser, ...profile.data };
+      } catch {}
+      login(res.data.token, fullUser);
+      toast.success(`Welcome${fullUser.name ? ', ' + fullUser.name : ''}!`);
+      navigate(fullUser.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Something went wrong');
     } finally {
@@ -49,10 +55,15 @@ const AuthPage = () => {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const res = await axios.post(`${API}/auth/google`, { token: credentialResponse.credential });
-      login(res.data.token, res.data.user);
-      toast.success(`Welcome, ${res.data.user.name}!`);
-      navigate(res.data.user.role === 'admin' ? '/admin' : '/dashboard');
-    } catch (err) {
+      let fullUser = res.data.user;
+      try {
+        const profile = await axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${res.data.token}` } });
+        fullUser = { ...fullUser, ...profile.data };
+      } catch {}
+      login(res.data.token, fullUser);
+      toast.success(`Welcome, ${fullUser.name}!`);
+      navigate(fullUser.role === 'admin' ? '/admin' : '/dashboard');
+    } catch {
       toast.error('Google login failed');
     }
   };

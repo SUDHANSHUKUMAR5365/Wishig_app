@@ -7,7 +7,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Any
 import uuid
 import re
 from datetime import datetime, timezone, timedelta
@@ -32,11 +32,37 @@ import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import json
+import httpx
+import asyncio
+import firebase_admin
+from firebase_admin import credentials as fb_credentials, messaging as fb_messaging
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+# ─── Firebase Admin SDK init ──────────────────────────────────────────────────
+# Expects FIREBASE_SERVICE_ACCOUNT_JSON env var containing the full JSON string
+# of the service account key downloaded from Firebase Console.
+_firebase_initialized = False
+def _init_firebase():
+    global _firebase_initialized
+    if _firebase_initialized:
+        return True
+    sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '')
+    if not sa_json:
+        return False
+    try:
+        sa_dict = json.loads(sa_json)
+        cred = fb_credentials.Certificate(sa_dict)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        _firebase_initialized = True
+        return True
+    except Exception as e:
+        logging.getLogger(__name__).warning(f'Firebase Admin init failed: {e}')
+        return False
 
 # MongoDB
 mongo_url = os.environ['MONGO_URL']
@@ -67,6 +93,16 @@ SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
 
 # OTP storage (in-memory, expires in 10 min)
 otp_store = {}
+
+# ─── Free tier limits ────────────────────────────────────────────────────────
+FREE_PHOTO_LIMIT = 4
+PREMIUM_PHOTO_LIMIT = 25
+FREE_THEMES = [
+    "neon_cyber", "royal_gold",          # 2 boys
+    "pink_pastel", "floral_elegant",      # 2 girls
+    "romantic_red",                        # 1 anniversary
+]
+FREE_GAMES = ["balloon_pop"]
 
 pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 security = HTTPBearer(auto_error=False)
@@ -242,6 +278,39 @@ class FileUploadResponse(BaseModel):
     path: str
     size: int
 
+# ─── Notification helper ─────────────────────────────────────────────────────
+async def create_notification(user_id: str, title: str, message: str, notif_type: str = "system"):
+    notif = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "title": title,
+        "message": message,
+        "type": notif_type,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_read": False,
+    }
+    await db.notifications.insert_one(notif)
+
+# ─── Premium helper ───────────────────────────────────────────────────────────
+async def is_premium(user_id: str) -> bool:
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user:
+        return False
+    if not user.get("premium_active"):
+        return False
+    if user.get("premium_type") == "lifetime":
+        return True
+    expiry = user.get("premium_expiry_date")
+    if expiry:
+        exp_dt = datetime.fromisoformat(expiry) if isinstance(expiry, str) else expiry
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) > exp_dt:
+            await db.users.update_one({"id": user_id}, {"$set": {"premium_active": False}})
+            await create_notification(user_id, "Premium Expired", "Your Premium membership has expired.", "premium")
+            return False
+    return True
+
 # --- Auth Routes ---
 @api_router.post("/auth/register")
 async def register(body: RegisterRequest):
@@ -253,6 +322,11 @@ async def register(body: RegisterRequest):
         "email": body.email.lower(),
         "password": hash_password(body.password),
         "role": "user",
+        "premium_active": False,
+        "premium_type": None,
+        "premium_start_date": None,
+        "premium_expiry_date": None,
+        "vip_friend": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.users.insert_one(user)
@@ -296,6 +370,11 @@ async def google_auth(body: GoogleAuthRequest):
 
 @api_router.get("/auth/me")
 async def get_me(current_user=Depends(get_current_user)):
+    # Return full user doc (with premium/vip fields) for /me
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+    if user:
+        user["premium_active"] = await is_premium(current_user["id"])
+        return user
     return current_user
 
 # Forgot password - send OTP
@@ -378,6 +457,7 @@ async def get_profile(current_user=Depends(get_current_user)):
     user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    user["premium_active"] = await is_premium(current_user["id"])
     return user
 
 @api_router.put("/profile")
@@ -450,6 +530,28 @@ async def create_event(input: EventCreate, current_user=Depends(get_current_user
         doc = await db.settings.find_one({"key": "maintenance"}, {"_id": 0})
         if doc and doc.get("value"):
             raise HTTPException(status_code=503, detail="maintenance")
+
+    user_premium = current_user["role"] == "admin" or await is_premium(current_user["id"])
+
+    if not user_premium:
+        # Photo limit
+        if len(input.photos) > FREE_PHOTO_LIMIT:
+            raise HTTPException(status_code=403, detail=f"Free plan allows up to {FREE_PHOTO_LIMIT} photos. Upgrade to Premium for {PREMIUM_PHOTO_LIMIT} photos.")
+        # Video restriction
+        if input.video_url:
+            raise HTTPException(status_code=403, detail="Video uploads are available for Premium members.")
+        # Theme restriction
+        if input.theme not in FREE_THEMES:
+            raise HTTPException(status_code=403, detail="This theme is available for Premium members.")
+        # Game restriction
+        if input.games_config:
+            for game_id, cfg in input.games_config.items():
+                if cfg.get("enabled") and game_id not in FREE_GAMES:
+                    raise HTTPException(status_code=403, detail="This game is available for Premium members.")
+    else:
+        if len(input.photos) > PREMIUM_PHOTO_LIMIT:
+            raise HTTPException(status_code=403, detail=f"Premium plan allows up to {PREMIUM_PHOTO_LIMIT} photos.")
+
     event = Event(**input.model_dump(), user_id=current_user["id"])
     doc = event.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
@@ -517,8 +619,8 @@ async def delete_user(user_id: str, current_user=Depends(get_current_user)):
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
-    # Also delete their events
     await db.events.delete_many({"user_id": user_id})
+    await db.notifications.delete_many({"user_id": user_id})
     return {"message": "User and their events deleted"}
 
 # Admin users
@@ -526,13 +628,319 @@ async def delete_user(user_id: str, current_user=Depends(get_current_user)):
 async def admin_users(current_user=Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1, "email": 1}).to_list(1000)
-    # Attach each user's events (with lock_pin)
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
     result = []
     for u in users:
         events = await db.events.find({"user_id": u["id"]}, {"_id": 0, "id": 1, "person_name": 1, "occasion_type": 1, "lock_pin": 1, "view_count": 1}).to_list(100)
-        result.append({"id": u["id"], "name": u["name"], "email": u["email"], "events": events})
+        premium = await is_premium(u["id"])
+        result.append({
+            "id": u["id"],
+            "name": u["name"],
+            "email": u["email"],
+            "premium_active": premium,
+            "premium_type": u.get("premium_type"),
+            "premium_expiry_date": u.get("premium_expiry_date"),
+            "vip_friend": u.get("vip_friend", False),
+            "events": events,
+        })
     return result
+
+# ─── Premium / VIP management ─────────────────────────────────────────────────
+class PremiumGrantRequest(BaseModel):
+    user_id: str
+    subscription_type: str  # 1month | 6months | 1year | 5years | lifetime | custom
+    custom_expiry: Optional[str] = None  # ISO date string for custom
+
+class VIPRequest(BaseModel):
+    user_id: str
+    vip: bool
+
+class GiftPremiumRequest(BaseModel):
+    user_id: str
+    subscription_type: str
+    custom_expiry: Optional[str] = None
+
+class BroadcastRequest(BaseModel):
+    title: str
+    message: str
+    target: str  # all | premium | free | vip | specific
+    target_user_id: Optional[str] = None
+
+def _calc_expiry(subscription_type: str, custom_expiry: Optional[str]) -> Optional[str]:
+    now = datetime.now(timezone.utc)
+    mapping = {
+        "1month": timedelta(days=30),
+        "6months": timedelta(days=183),
+        "1year": timedelta(days=365),
+        "5years": timedelta(days=365 * 5),
+    }
+    if subscription_type == "lifetime":
+        return None
+    if subscription_type == "custom" and custom_expiry:
+        return custom_expiry
+    delta = mapping.get(subscription_type)
+    if delta:
+        return (now + delta).isoformat()
+    return None
+
+@api_router.post("/admin/premium/grant")
+async def grant_premium(body: PremiumGrantRequest, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    user_id = safe_uuid(body.user_id, "user ID")
+    expiry = _calc_expiry(body.subscription_type, body.custom_expiry)
+    update = {
+        "premium_active": True,
+        "premium_type": body.subscription_type,
+        "premium_start_date": datetime.now(timezone.utc).isoformat(),
+        "premium_expiry_date": expiry,
+    }
+    result = await db.users.update_one({"id": user_id}, {"$set": update})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    await notify_and_push(user_id, "Premium Activated", "Your Premium membership is now active.", "premium")
+    return {"message": "Premium granted"}
+
+@api_router.post("/admin/premium/remove")
+async def remove_premium(body: dict, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    user_id = safe_uuid(body.get("user_id", ""), "user ID")
+    await db.users.update_one({"id": user_id}, {"$set": {"premium_active": False, "premium_type": None, "premium_expiry_date": None}})
+    return {"message": "Premium removed"}
+
+@api_router.post("/admin/premium/gift")
+async def gift_premium(body: GiftPremiumRequest, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    user_id = safe_uuid(body.user_id, "user ID")
+    expiry = _calc_expiry(body.subscription_type, body.custom_expiry)
+    update = {
+        "premium_active": True,
+        "premium_type": body.subscription_type,
+        "premium_start_date": datetime.now(timezone.utc).isoformat(),
+        "premium_expiry_date": expiry,
+    }
+    result = await db.users.update_one({"id": user_id}, {"$set": update})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    await notify_and_push(user_id, "Premium Gift Received", "You have received Premium access.", "premium")
+    return {"message": "Premium gifted"}
+
+@api_router.post("/admin/vip")
+async def set_vip(body: VIPRequest, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    user_id = safe_uuid(body.user_id, "user ID")
+    result = await db.users.update_one({"id": user_id}, {"$set": {"vip_friend": body.vip}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    if body.vip:
+        await notify_and_push(user_id, "VIP Friend Status", "You have been granted VIP Friend status.", "vip")
+    return {"message": "VIP updated"}
+
+@api_router.post("/admin/broadcast")
+async def broadcast(body: BroadcastRequest, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    if body.target == "specific":
+        if not body.target_user_id:
+            raise HTTPException(status_code=400, detail="target_user_id required for specific target")
+        user_id = safe_uuid(body.target_user_id, "user ID")
+        await notify_and_push(user_id, body.title, body.message, "announcement")
+        return {"message": "Sent to 1 user"}
+    query = {}
+    if body.target == "premium":
+        query = {"premium_active": True}
+    elif body.target == "free":
+        query = {"$or": [{"premium_active": False}, {"premium_active": {"$exists": False}}]}
+    elif body.target == "vip":
+        query = {"vip_friend": True}
+    users = await db.users.find(query, {"_id": 0, "id": 1}).to_list(10000)
+    for u in users:
+        await notify_and_push(u["id"], body.title, body.message, "announcement")
+    return {"message": f"Sent to {len(users)} users"}
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+@api_router.get("/notifications")
+async def get_notifications(current_user=Depends(get_current_user)):
+    notifs = await db.notifications.find(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return notifs
+
+@api_router.post("/notifications/{notif_id}/read")
+async def mark_read(notif_id: str, current_user=Depends(get_current_user)):
+    notif_id = safe_uuid(notif_id, "notification ID")
+    await db.notifications.update_one(
+        {"id": notif_id, "user_id": current_user["id"]},
+        {"$set": {"is_read": True}}
+    )
+    return {"message": "Marked as read"}
+
+@api_router.post("/notifications/read-all")
+async def mark_all_read(current_user=Depends(get_current_user)):
+    await db.notifications.update_many(
+        {"user_id": current_user["id"], "is_read": False},
+        {"$set": {"is_read": True}}
+    )
+    return {"message": "All marked as read"}
+
+# ─── FCM token registration ───────────────────────────────────────────────────
+@api_router.post("/notifications/register-token")
+async def register_fcm_token(body: dict, current_user=Depends(get_current_user)):
+    token = body.get("token", "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+    await db.users.update_one({"id": current_user["id"]}, {"$set": {"fcm_token": token}})
+    return {"message": "Token registered"}
+
+# ─── FCM push helper (Firebase Admin SDK v1 API) ──────────────────────────────
+async def send_push(user_id: str, title: str, body: str):
+    """Send FCM push via Firebase Admin SDK. Silently skips if not configured."""
+    if not _init_firebase():
+        return
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "fcm_token": 1})
+    if not user or not user.get("fcm_token"):
+        return
+    try:
+        message = fb_messaging.Message(
+            notification=fb_messaging.Notification(title=title, body=body),
+            data={"title": title, "body": body},
+            token=user["fcm_token"],
+        )
+        await asyncio.get_event_loop().run_in_executor(None, fb_messaging.send, message)
+    except Exception as e:
+        logger.warning(f"FCM push failed for user {user_id}: {e}")
+
+async def notify_and_push(user_id: str, title: str, message: str, notif_type: str = "system"):
+    """Create in-app notification AND send FCM push."""
+    await create_notification(user_id, title, message, notif_type)
+    await send_push(user_id, title, message)
+
+# ─── Support Tickets ──────────────────────────────────────────────────────────
+class TicketCreate(BaseModel):
+    subject: str
+    message: str
+
+class TicketReply(BaseModel):
+    admin_reply: str
+
+@api_router.post("/support/tickets")
+async def create_ticket(body: TicketCreate, current_user=Depends(get_current_user)):
+    if not body.subject.strip() or not body.message.strip():
+        raise HTTPException(status_code=400, detail="Subject and message required")
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    now = datetime.now(timezone.utc).isoformat()
+    ticket = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "user_name": user.get("name", "") if user else "",
+        "user_email": current_user["email"],
+        "subject": body.subject.strip()[:200],
+        "message": body.message.strip()[:2000],
+        "status": "open",
+        "admin_reply": None,
+        "created_at": now,
+        "updated_at": now,
+        "resolved_at": None,
+    }
+    await db.support_tickets.insert_one(ticket)
+    return {k: v for k, v in ticket.items() if k != "_id"}
+
+@api_router.get("/support/tickets")
+async def get_my_tickets(current_user=Depends(get_current_user)):
+    tickets = await db.support_tickets.find(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return tickets
+
+@api_router.get("/admin/support/tickets")
+async def admin_get_tickets(current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    tickets = await db.support_tickets.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return tickets
+
+@api_router.post("/admin/support/tickets/{ticket_id}/reply")
+async def admin_reply_ticket(ticket_id: str, body: TicketReply, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    ticket_id = safe_uuid(ticket_id, "ticket ID")
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.support_tickets.update_one(
+        {"id": ticket_id},
+        {"$set": {
+            "admin_reply": body.admin_reply.strip(),
+            "status": "in_progress",
+            "updated_at": now,
+        }}
+    )
+    await notify_and_push(
+        ticket["user_id"],
+        "Support Team Replied",
+        "You have received a reply from support.",
+        "system"
+    )
+    return {"message": "Reply sent"}
+
+@api_router.post("/admin/support/tickets/{ticket_id}/status")
+async def admin_update_ticket_status(ticket_id: str, body: dict, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    ticket_id = safe_uuid(ticket_id, "ticket ID")
+    status = body.get("status", "")
+    if status not in ("open", "in_progress", "resolved"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    ticket = await db.support_tickets.find_one({"id": ticket_id}, {"_id": 0})
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    now = datetime.now(timezone.utc).isoformat()
+    update = {"status": status, "updated_at": now}
+    if status == "resolved":
+        update["resolved_at"] = now
+    await db.support_tickets.update_one({"id": ticket_id}, {"$set": update})
+    if status == "resolved":
+        await notify_and_push(
+            ticket["user_id"],
+            "Support Request Resolved",
+            "Your support request has been resolved.",
+            "system"
+        )
+    return {"message": "Status updated"}
+
+# ─── Premium expiry check (called on demand or can be scheduled) ───────────────
+@api_router.post("/admin/check-expiry")
+async def check_expiry(current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    now = datetime.now(timezone.utc)
+    soon = now + timedelta(days=7)
+    # Find active non-lifetime premium users
+    users = await db.users.find(
+        {"premium_active": True, "premium_type": {"$ne": "lifetime"}, "premium_expiry_date": {"$ne": None}},
+        {"_id": 0, "id": 1, "premium_expiry_date": 1}
+    ).to_list(10000)
+    notified_expiring = 0
+    notified_expired = 0
+    for u in users:
+        expiry_str = u.get("premium_expiry_date")
+        if not expiry_str:
+            continue
+        exp_dt = datetime.fromisoformat(expiry_str)
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        if exp_dt < now:
+            await db.users.update_one({"id": u["id"]}, {"$set": {"premium_active": False}})
+            await notify_and_push(u["id"], "Premium Expired", "Your Premium membership has expired.", "premium")
+            notified_expired += 1
+        elif exp_dt < soon:
+            await notify_and_push(u["id"], "Premium Expiring Soon", "Your Premium membership expires in 7 days.", "premium")
+            notified_expiring += 1
+    return {"expired": notified_expired, "expiring_soon": notified_expiring}
 
 # Admin stats
 @api_router.get("/admin/stats")
@@ -547,6 +955,150 @@ async def admin_stats(current_user=Depends(get_current_user)):
         "total_users": total_users,
         "total_views": total_views[0]["total"] if total_views else 0
     }
+
+# ─── Payment QR setting ───────────────────────────────────────────────────────
+@api_router.get("/settings/payment-qr")
+async def get_payment_qr():
+    doc = await db.settings.find_one({"key": "payment_qr_url"}, {"_id": 0})
+    return {"url": doc["value"] if doc else None}
+
+@api_router.post("/admin/settings/payment-qr")
+async def set_payment_qr(body: dict, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    url = body.get("url", "").strip()
+    await db.settings.update_one(
+        {"key": "payment_qr_url"},
+        {"$set": {"key": "payment_qr_url", "value": url}},
+        upsert=True
+    )
+    return {"url": url}
+
+# ─── Payment Requests ─────────────────────────────────────────────────────────
+PLAN_TO_SUB_TYPE = {
+    "1month": "1month",
+    "6months": "6months",
+    "1year": "1year",
+    "5years": "5years",
+    "lifetime": "lifetime",
+}
+
+class PaymentRequestCreate(BaseModel):
+    plan_type: str
+    screenshot_url: str
+
+@api_router.post("/payment-requests")
+async def create_payment_request(body: PaymentRequestCreate, current_user=Depends(get_current_user)):
+    if current_user["role"] == "admin":
+        raise HTTPException(status_code=400, detail="Admin cannot submit payment requests")
+    # Block duplicate pending
+    existing = await db.payment_requests.find_one({
+        "user_id": current_user["id"],
+        "status": "pending"
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have a pending payment request")
+    if body.plan_type not in PLAN_TO_SUB_TYPE:
+        raise HTTPException(status_code=400, detail="Invalid plan type")
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    req = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        "user_name": user.get("name", "") if user else "",
+        "user_email": current_user["email"],
+        "plan_type": body.plan_type,
+        "screenshot_url": body.screenshot_url,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "reviewed_at": None,
+        "reviewed_by": None,
+    }
+    await db.payment_requests.insert_one(req)
+    await create_notification(
+        current_user["id"],
+        "Payment Submitted",
+        "Your payment proof has been submitted. We'll review it shortly.",
+        "premium"
+    )
+    return {k: v for k, v in req.items() if k != "_id"}
+
+@api_router.get("/payment-requests/my")
+async def get_my_payment_requests(current_user=Depends(get_current_user)):
+    reqs = await db.payment_requests.find(
+        {"user_id": current_user["id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(20)
+    return reqs
+
+@api_router.get("/admin/payment-requests")
+async def admin_get_payment_requests(current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    reqs = await db.payment_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return reqs
+
+@api_router.post("/admin/payment-requests/{req_id}/approve")
+async def approve_payment_request(req_id: str, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    req_id = safe_uuid(req_id, "request ID")
+    req = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Request already reviewed")
+    # Activate premium using existing subscription system
+    sub_type = PLAN_TO_SUB_TYPE.get(req["plan_type"], "1month")
+    expiry = _calc_expiry(sub_type, None)
+    await db.users.update_one(
+        {"id": req["user_id"]},
+        {"$set": {
+            "premium_active": True,
+            "premium_type": sub_type,
+            "premium_start_date": datetime.now(timezone.utc).isoformat(),
+            "premium_expiry_date": expiry,
+        }}
+    )
+    await db.payment_requests.update_one(
+        {"id": req_id},
+        {"$set": {
+            "status": "approved",
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_by": current_user["email"],
+        }}
+    )
+    await notify_and_push(
+        req["user_id"],
+        "Premium Activated",
+        "Your Premium membership has been activated successfully.",
+        "premium"
+    )
+    return {"message": "Approved and premium activated"}
+
+@api_router.post("/admin/payment-requests/{req_id}/reject")
+async def reject_payment_request(req_id: str, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    req_id = safe_uuid(req_id, "request ID")
+    req = await db.payment_requests.find_one({"id": req_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Request already reviewed")
+    await db.payment_requests.update_one(
+        {"id": req_id},
+        {"$set": {
+            "status": "rejected",
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "reviewed_by": current_user["email"],
+        }}
+    )
+    await notify_and_push(
+        req["user_id"],
+        "Payment Verification Failed",
+        "Your payment proof could not be verified. Please contact support if needed.",
+        "premium"
+    )
+    return {"message": "Rejected"}
 
 class AIMessageRequest(BaseModel):
     person_name: str
