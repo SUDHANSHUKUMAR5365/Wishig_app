@@ -208,52 +208,54 @@ const Dashboard = () => {
     <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 gap-2">
           <button
             onClick={() => navigate('/')}
-            className="text-[#94A3B8] hover:text-white transition-colors flex items-center gap-2"
+            className="text-[#94A3B8] hover:text-white transition-colors flex items-center gap-1 shrink-0"
           >
             <ChevronLeft className="w-5 h-5" />
-            Back
+            <span className="hidden sm:inline">Back</span>
           </button>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-[#D4AF37]" />
-            <span className="font-heading text-white text-lg">My Celebrations</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <Sparkles className="w-5 h-5 text-[#D4AF37]" />
+            <span className="font-heading text-white text-base sm:text-lg">My Celebrations</span>
           </div>
-          <div className="flex gap-2 items-center">
-            {/* Notification Bell */}
+          <div className="flex gap-1.5 items-center shrink-0">
             <button
               onClick={() => { setShowNotifications(true); setUnreadCount(0); }}
-              className="relative w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+              className="relative w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
             >
               <Bell className="w-4 h-4 text-[#94A3B8]" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#D4AF37] text-[#0A0F1F] text-xs font-bold flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#D4AF37] text-[#0A0F1F] text-xs font-bold flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </button>
             <button
               onClick={() => navigate('/support')}
-              className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+              className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
               title="Help & Support"
             >
               <MessageCircle className="w-4 h-4 text-[#94A3B8]" />
             </button>
             <button
               onClick={() => navigate('/profile')}
-              className="w-9 h-9 rounded-full overflow-hidden border border-[#D4AF37]/40 bg-white/5 flex items-center justify-center hover:border-[#D4AF37] transition-colors"
+              className="w-8 h-8 rounded-full overflow-hidden border border-[#D4AF37]/40 bg-white/5 flex items-center justify-center hover:border-[#D4AF37] transition-colors"
             >
               {user?.avatar_url
                 ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                 : <User className="w-4 h-4 text-[#94A3B8]" />}
             </button>
-            <Button onClick={() => { logout(); navigate('/login'); }} variant="outline" className="border-white/10 text-white hover:bg-white/5">
-              <LogOut className="w-4 h-4" />
-            </Button>
-            <Button onClick={() => navigate('/create')} className="btn-gold" data-testid="create-new-btn">
-              <Plus className="w-5 h-5 mr-2" />
-              Create New
+            <button
+              onClick={() => { logout(); navigate('/login'); }}
+              className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+            >
+              <LogOut className="w-4 h-4 text-[#94A3B8]" />
+            </button>
+            <Button onClick={() => navigate('/create')} className="btn-gold px-3 py-1.5 text-sm" data-testid="create-new-btn">
+              <Plus className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Create New</span>
             </Button>
           </div>
         </div>
