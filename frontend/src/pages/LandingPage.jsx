@@ -24,7 +24,7 @@ const LandingPage = () => {
     { icon: Camera,         title: 'Reward Gallery',     desc: 'Polaroid-style photo gallery unlock' },
     { icon: MessageSquare,  title: 'Secret Message',     desc: 'Heartfelt typewriter love letter' },
     { icon: Video,          title: 'Video Surprise',     desc: 'Play a personal video message' },
-    { icon: Wand2,          title: 'Multiple Themes',    desc: '12 premium themes for every occasion' },
+    { icon: Wand2,          title: 'Multiple Themes',    desc: '50 premium themes for every occasion' },
   ];
 
   const games = [
@@ -54,7 +54,7 @@ const LandingPage = () => {
     { icon: Music,       value: '🎵', label: 'Background Music',  isEmoji: true },
     { icon: Video,       value: '🎥', label: 'Video Surprises',   isEmoji: true },
     { icon: Lock,        value: '🔐', label: 'Secret PIN',        isEmoji: true },
-    { icon: Wand2,       value: '12', label: 'Premium Themes' },
+    { icon: Wand2,       value: '50', label: 'Premium Themes' },
   ];
 
   return (
@@ -296,7 +296,7 @@ const LandingPage = () => {
             { emoji: '🎵', value: '1', label: 'Background Music Track' },
             { emoji: '🎥', value: '1', label: 'Video Surprise' },
             { emoji: '🔐', value: '1', label: 'Secret PIN Protection' },
-            { emoji: '🎨', value: '12', label: 'Premium Themes' },
+            { emoji: '🎨', value: '50', label: 'Premium Themes' },
           ].map((item, index) => (
             <motion.div
               key={item.label}
