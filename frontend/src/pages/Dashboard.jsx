@@ -209,18 +209,22 @@ const Dashboard = () => {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 gap-2">
+          {/* Left: Back */}
           <button
             onClick={() => navigate('/')}
             className="text-[#94A3B8] hover:text-white transition-colors flex items-center gap-1 shrink-0"
           >
             <ChevronLeft className="w-5 h-5" />
-            <span className="hidden sm:inline">Back</span>
           </button>
-          <div className="flex items-center gap-2 shrink-0">
-            <Sparkles className="w-5 h-5 text-[#D4AF37]" />
-            <span className="font-heading text-white text-base sm:text-lg">My Celebrations</span>
+
+          {/* Center: Title */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+            <span className="font-heading text-white text-sm sm:text-lg">My Celebrations</span>
           </div>
-          <div className="flex gap-1.5 items-center shrink-0">
+
+          {/* Right: icon buttons only */}
+          <div className="flex gap-1 items-center shrink-0">
             <button
               onClick={() => { setShowNotifications(true); setUnreadCount(0); }}
               className="relative w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
@@ -235,7 +239,6 @@ const Dashboard = () => {
             <button
               onClick={() => navigate('/support')}
               className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
-              title="Help & Support"
             >
               <MessageCircle className="w-4 h-4 text-[#94A3B8]" />
             </button>
@@ -253,10 +256,14 @@ const Dashboard = () => {
             >
               <LogOut className="w-4 h-4 text-[#94A3B8]" />
             </button>
-            <Button onClick={() => navigate('/create')} className="btn-gold px-3 py-1.5 text-sm" data-testid="create-new-btn">
-              <Plus className="w-4 h-4 sm:mr-1" />
-              <span className="hidden sm:inline">Create New</span>
-            </Button>
+            <button
+              onClick={() => navigate('/create')}
+              className="w-8 h-8 rounded-full btn-gold flex items-center justify-center"
+              data-testid="create-new-btn"
+              title="Create New"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
