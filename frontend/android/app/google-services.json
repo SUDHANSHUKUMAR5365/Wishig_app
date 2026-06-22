@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "351806783870",
+    "project_id": "celebration-qr",
+    "storage_bucket": "celebration-qr.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:351806783870:android:5b63ffa119913203fd332f",
+        "android_client_info": {
+          "package_name": "com.sudhanshu.celebrationqr"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "351806783870-veiu5qv3t3sjleabu5ngnh8kpckd5gg3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfFqtY7opbp8Gs4HhqzDCPt9uQZAPoE3k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "351806783870-veiu5qv3t3sjleabu5ngnh8kpckd5gg3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
