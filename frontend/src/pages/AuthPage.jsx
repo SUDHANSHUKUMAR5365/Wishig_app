@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import { useAuth } from '@/lib/auth';
 import { GoogleLogin } from '@react-oauth/google';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -55,6 +57,24 @@ const AuthPage = () => {
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
       const res = await axios.post(`${API}/auth/google`, { token: credentialResponse.credential });
+      let fullUser = res.data.user;
+      try {
+        const profile = await axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${res.data.token}` } });
+        fullUser = { ...fullUser, ...profile.data };
+      } catch {}
+      login(res.data.token, fullUser);
+      toast.success(`Welcome, ${fullUser.name}!`);
+      navigate(fullUser.role === 'admin' ? '/admin' : '/dashboard');
+    } catch {
+      toast.error('Google login failed');
+    }
+  };
+
+  const handleAndroidGoogleSignIn = async () => {
+    try {
+      const googleUser = await GoogleAuth.signIn();
+      const idToken = googleUser.authentication.idToken;
+      const res = await axios.post(`${API}/auth/google`, { token: idToken });
       let fullUser = res.data.user;
       try {
         const profile = await axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${res.data.token}` } });
@@ -171,14 +191,21 @@ const AuthPage = () => {
         ) : (
           <>
             <div className="flex justify-center mb-4">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => toast.error('Google login failed')}
-                theme="filled_black"
-                shape="rectangular"
-                width="100%"
-                text={mode === 'login' ? 'signin_with' : 'signup_with'}
-              />
+              {Capacitor.isNativePlatform() ? (
+                <Button onClick={handleAndroidGoogleSignIn} className="w-full h-11 bg-white text-black hover:bg-gray-100 flex items-center justify-center gap-2">
+                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                  {mode === 'login' ? 'Sign in with Google' : 'Sign up with Google'}
+                </Button>
+              ) : (
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => toast.error('Google login failed')}
+                  theme="filled_black"
+                  shape="rectangular"
+                  width="100%"
+                  text={mode === 'login' ? 'signin_with' : 'signup_with'}
+                />
+              )}
             </div>
 
             <div className="flex items-center gap-3 mb-4">

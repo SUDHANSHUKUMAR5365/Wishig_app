@@ -1688,21 +1688,8 @@ const MusicPlayer = ({ songUrl, theme }) => {
     const audio = audioRef.current;
     if (!audio) return;
     startedRef.current = false;
-    audio.volume = 0;
-    const play = () => {
-      audio.play().then(() => {
-        setIsPlaying(true);
-        startedRef.current = true;
-        let v = 0;
-        const t = setInterval(() => {
-          v = Math.min(1, v + 0.05);
-          if (audio) audio.volume = v;
-          if (v >= 1) clearInterval(t);
-        }, 100);
-      }).catch(() => {});
-    };
-    const t = setTimeout(play, 300);
-    return () => clearTimeout(t);
+    audio.volume = 1;
+    setIsPlaying(false);
   }, [songUrl]);
 
   useEffect(() => {
@@ -1725,7 +1712,7 @@ const MusicPlayer = ({ songUrl, theme }) => {
     const audio = audioRef.current;
     if (!audio) return;
     if (isPlaying) { audio.pause(); setIsPlaying(false); }
-    else { audio.play().catch(() => {}); setIsPlaying(true); }
+    else { audio.play().catch(() => {}); setIsPlaying(true); startedRef.current = true; }
   };
 
   const toggleMute = () => {

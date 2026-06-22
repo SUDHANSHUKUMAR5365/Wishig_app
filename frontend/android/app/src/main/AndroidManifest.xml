@@ -46,15 +46,19 @@
     </application>
 
     <!-- Permissions -->
+    <!-- INTERNET: required for all API calls, Cloudinary uploads, Firebase, Google Fonts -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- READ_MEDIA_IMAGES: required for HTML <input accept="image/*"> file picker (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- READ_MEDIA_VIDEO: required for HTML <input accept="video/*"> file picker (API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+
+    <!-- READ_EXTERNAL_STORAGE: required for file picker on API 32 and below -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+
+    <!-- POST_NOTIFICATIONS: required for Firebase push notifications on API 33+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
 </manifest>

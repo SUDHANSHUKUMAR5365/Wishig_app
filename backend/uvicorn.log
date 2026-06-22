@@ -1,0 +1,5 @@
+INFO:     Started server process [4712]
+INFO:     Waiting for application startup.
+2026-06-19 14:45:01,857 - server - INFO - Celebration QR API started
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)

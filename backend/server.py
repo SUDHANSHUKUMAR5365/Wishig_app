@@ -942,6 +942,76 @@ async def check_expiry(current_user=Depends(get_current_user)):
             notified_expiring += 1
     return {"expired": notified_expired, "expiring_soon": notified_expiring}
 
+# --- Notification Token ---
+class RegisterTokenRequest(BaseModel):
+    token: str
+
+@api_router.post("/notifications/register-token")
+async def register_token(body: RegisterTokenRequest, current_user=Depends(get_current_user)):
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"fcm_token": body.token}}
+    )
+    return {"message": "Token registered"}
+
+# --- Admin test notification ---
+class TestNotificationRequest(BaseModel):
+    user_id: str
+    title: str = "Test Notification"
+    body: str = "Celebration QR notification test"
+
+@api_router.post("/admin/test-notification")
+async def test_notification(body: TestNotificationRequest, current_user=Depends(get_current_user)):
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    user = await db.users.find_one({"id": body.user_id}, {"_id": 0, "fcm_token": 1})
+    if not user or not user.get("fcm_token"):
+        raise HTTPException(status_code=404, detail="User has no FCM token")
+    
+    fcm_token = user["fcm_token"]
+    
+    # Send via FCM HTTP v1 API using service account
+    firebase_creds_str = os.environ.get('FIREBASE_CREDENTIALS', '')
+    if not firebase_creds_str:
+        raise HTTPException(status_code=503, detail="Firebase credentials not configured")
+    
+    try:
+        import google.auth
+        import google.auth.transport.requests
+        from google.oauth2 import service_account
+        import json as json_lib
+        
+        creds_dict = json_lib.loads(firebase_creds_str)
+        project_id = creds_dict.get('project_id')
+        
+        credentials = service_account.Credentials.from_service_account_info(
+            creds_dict,
+            scopes=['https://www.googleapis.com/auth/firebase.messaging']
+        )
+        credentials.refresh(google.auth.transport.requests.Request())
+        
+        resp = http_requests.post(
+            f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send",
+            headers={
+                "Authorization": f"Bearer {credentials.token}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "message": {
+                    "token": fcm_token,
+                    "notification": {"title": body.title, "body": body.body},
+                    "android": {"priority": "high"},
+                }
+            },
+            timeout=10
+        )
+        resp.raise_for_status()
+        return {"message": "Notification sent", "fcm_response": resp.json()}
+    except Exception as e:
+        logger.error(f"FCM send error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send notification: {str(e)}")
+
 # Admin stats
 @api_router.get("/admin/stats")
 async def admin_stats(current_user=Depends(get_current_user)):

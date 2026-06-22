@@ -21,15 +21,20 @@ const config: CapacitorConfig = {
   },
 
   plugins: {
+    GoogleAuth: {
+      scopes: ['profile', 'email'],
+      serverClientId: '351806783870-veju5qv3t3sjleabu5ngnh8kpckd5gg3.apps.googleusercontent.com',
+      forceCodeForRefreshToken: true,
+    },
+    FirebaseMessaging: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,
       backgroundColor: '#0A0F1F',
       androidSplashResourceName: 'splash',
       showSpinner: false,
-    },
-    PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert'],
     },
     Keyboard: {
       resize: 'body',
