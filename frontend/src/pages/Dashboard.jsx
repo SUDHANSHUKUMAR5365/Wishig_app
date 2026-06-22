@@ -110,7 +110,7 @@ const NotificationDrawer = ({ open, onClose, token }) => {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { token, logout, user, isPremium, isVip } = useAuth();
+  const { token, logout, user, isPremium, isVip, updateUser } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -123,6 +123,10 @@ const Dashboard = () => {
   useEffect(() => {
     fetchEvents();
     fetchUnreadCount();
+    // Refresh premium/vip status on mount so admin-approved subscriptions are reflected
+    axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.data && updateUser(r.data))
+      .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchEvents = async () => {
@@ -205,7 +209,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">
+    <div className="min-h-screen bg-[#0A0F1F] px-4 safe-top" style={{ paddingTop: `calc(env(safe-area-inset-top, 0px) + 32px)`, paddingBottom: 32 }}>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8 gap-2">

@@ -23,7 +23,6 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('token'));
 
   // On startup: refresh user profile from backend to pick up premium/vip changes
-  // made by admin while user was already logged in
   useEffect(() => {
     const jwt = localStorage.getItem('token');
     if (!jwt) return;
@@ -31,9 +30,12 @@ export const AuthProvider = ({ children }) => {
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data) return;
-        const merged = { ...JSON.parse(localStorage.getItem('user') || '{}'), ...data };
-        localStorage.setItem('user', JSON.stringify(merged));
-        setUser(merged);
+        // Use functional setUser so we always merge into the latest state
+        setUser(prev => {
+          const merged = { ...(prev || {}), ...data };
+          localStorage.setItem('user', JSON.stringify(merged));
+          return merged;
+        });
       })
       .catch(() => {});
     registerFcmToken(jwt);
@@ -48,7 +50,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUser = (updatedUser) => {
-    const merged = { ...user, ...updatedUser };
+    // Always read current stored user to avoid merging into stale state
+    const current = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })();
+    const merged = { ...current, ...updatedUser };
     localStorage.setItem('user', JSON.stringify(merged));
     setUser(merged);
   };

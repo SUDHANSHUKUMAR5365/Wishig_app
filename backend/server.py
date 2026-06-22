@@ -50,7 +50,8 @@ def _init_firebase():
     global _firebase_initialized
     if _firebase_initialized:
         return True
-    sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON', '')
+    # Support both env var names
+    sa_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT_JSON') or os.environ.get('FIREBASE_CREDENTIALS', '')
     if not sa_json:
         return False
     try:
@@ -341,7 +342,12 @@ async def login(body: LoginRequest):
         return {"token": token, "user": {"id": "admin", "name": "Admin", "email": ADMIN_EMAIL, "role": "admin"}}
     # Check regular user
     user = await db.users.find_one({"email": body.email.lower()}, {"_id": 0})
-    if not user or not verify_password(body.password, user["password"]):
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    # Google OAuth users have empty password — block password login for them
+    if not user.get("password"):
+        raise HTTPException(status_code=401, detail="Please sign in with Google")
+    if not verify_password(body.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_token({"id": user["id"], "email": user["email"], "name": user["name"], "role": user.get("role", "user")})
     return {"token": token, "user": {"id": user["id"], "name": user["name"], "email": user["email"], "role": user.get("role", "user")}}
@@ -370,7 +376,18 @@ async def google_auth(body: GoogleAuthRequest):
 
 @api_router.get("/auth/me")
 async def get_me(current_user=Depends(get_current_user)):
-    # Return full user doc (with premium/vip fields) for /me
+    # Admin is not stored in MongoDB — return a synthetic full profile
+    if current_user.get("role") == "admin":
+        return {
+            "id": "admin",
+            "name": "Admin",
+            "email": current_user["email"],
+            "role": "admin",
+            "premium_active": True,
+            "vip_friend": True,
+            "premium_type": "lifetime",
+            "premium_expiry_date": None,
+        }
     user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
     if user:
         user["premium_active"] = await is_premium(current_user["id"])
@@ -454,6 +471,8 @@ async def reset_password(body: ResetPasswordRequest):
 # --- Profile ---
 @api_router.get("/profile")
 async def get_profile(current_user=Depends(get_current_user)):
+    if current_user.get("role") == "admin":
+        return {"id": "admin", "name": "Admin", "email": current_user["email"], "role": "admin", "premium_active": True, "vip_friend": True}
     user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -462,6 +481,8 @@ async def get_profile(current_user=Depends(get_current_user)):
 
 @api_router.put("/profile")
 async def update_profile(body: dict, current_user=Depends(get_current_user)):
+    if current_user.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Admin profile cannot be edited")
     allowed = {"name", "mobile", "bio", "avatar_url"}
     update_data = {k: v for k, v in body.items() if k in allowed}
     if not update_data:

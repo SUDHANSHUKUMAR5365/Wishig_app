@@ -71,9 +71,20 @@ const AuthPage = () => {
   };
 
   const handleAndroidGoogleSignIn = async () => {
+    setLoading(true);
     try {
+      // Initialize only once — calling initialize() repeatedly on Android causes a crash
+      try {
+        await GoogleAuth.initialize({
+          clientId: '351806783870-veju5qv3t3sjleabu5ngnh8kpckd5gg3.apps.googleusercontent.com',
+          scopes: ['profile', 'email'],
+        });
+      } catch (_initErr) {
+        // Already initialized — safe to ignore
+      }
       const googleUser = await GoogleAuth.signIn();
-      const idToken = googleUser.authentication.idToken;
+      const idToken = googleUser?.authentication?.idToken;
+      if (!idToken) throw new Error('No ID token received');
       const res = await axios.post(`${API}/auth/google`, { token: idToken });
       let fullUser = res.data.user;
       try {
@@ -83,8 +94,11 @@ const AuthPage = () => {
       login(res.data.token, fullUser);
       toast.success(`Welcome, ${fullUser.name}!`);
       navigate(fullUser.role === 'admin' ? '/admin' : '/dashboard');
-    } catch {
-      toast.error('Google login failed');
+    } catch (err) {
+      console.error('Android Google Sign-In error:', err);
+      toast.error('Google login failed: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -540,7 +540,7 @@ const occasionTypes = [
 // ─── CreateEvent ──────────────────────────────────────────────────────────────
 const CreateEvent = () => {
   const navigate = useNavigate();
-  const { token, user, isPremium, isVip } = useAuth();
+  const { token, user, isPremium, isVip, updateUser } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
@@ -549,6 +549,13 @@ const CreateEvent = () => {
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isGeneratingFlipAI, setIsGeneratingFlipAI] = useState(false);
   const [aiTone, setAiTone] = useState('heartfelt');
+
+  // Refresh premium status on mount so locks/limits are accurate
+  useEffect(() => {
+    axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.data && updateUser(r.data))
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const photoInputRef = useRef(null);
   const videoInputRef = useRef(null);
@@ -1108,7 +1115,7 @@ const CreateEvent = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">
+    <div className="min-h-screen bg-[#0A0F1F] px-4 pb-8" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 32px)' }}>
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <button onClick={() => navigate('/')} className="text-[#94A3B8] hover:text-white transition-colors flex items-center gap-2">

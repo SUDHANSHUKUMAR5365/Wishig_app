@@ -325,7 +325,7 @@ const AdminPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">
+    <div className="min-h-screen bg-[#0A0F1F] px-4 pb-8" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 32px)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-2">

@@ -37,7 +37,7 @@ const STATUS_CONFIG = {
 
 const PremiumPage = () => {
   const navigate = useNavigate();
-  const { token, user, isPremium } = useAuth();
+  const { token, user, isPremium, updateUser } = useAuth();
   const screenshotInputRef = useRef(null);
 
   const [step, setStep] = useState(1); // 1=plan, 2=pay, 3=upload, 4=done
@@ -60,7 +60,12 @@ const PremiumPage = () => {
       .then(r => setMyRequests(r.data))
       .catch(() => {})
       .finally(() => setLoadingRequests(false));
-  }, [token]);
+
+    // Refresh premium status from backend so any admin approval is reflected immediately
+    axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.data && updateUser(r.data))
+      .catch(() => {});
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasPending = myRequests.some(r => r.status === 'pending');
 
@@ -116,7 +121,7 @@ const PremiumPage = () => {
   const planLabel = PLANS.find(p => p.id === selectedPlan)?.label || '';
 
   return (
-    <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">
+    <div className="min-h-screen bg-[#0A0F1F] px-4 pb-8" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 32px)' }}>
       <div className="max-w-lg mx-auto">
 
         {/* Header */}

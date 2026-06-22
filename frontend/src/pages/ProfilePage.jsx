@@ -35,6 +35,10 @@ const ProfilePage = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
+    // Refresh premium status first so isPremium is accurate
+    axios.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.data && updateUser(r.data))
+      .catch(() => {});
     axios.get(`${API}/profile`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => setForm({
         name: r.data.name || '',
@@ -44,21 +48,37 @@ const ProfilePage = () => {
       }))
       .catch(() => toast.error('Failed to load profile'))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setUploadingAvatar(true);
     try {
+      const { data: sig } = await axios.get(`${API}/upload/signature`, {
+        params: { folder: 'avatars' },
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const fd = new FormData();
       fd.append('file', file);
-      const res = await axios.post(`${API}/upload`, fd, {
-        params: { folder: 'avatars' },
-        headers: { 'Content-Type': 'multipart/form-data' },
+      fd.append('api_key', sig.api_key);
+      fd.append('timestamp', sig.timestamp);
+      fd.append('signature', sig.signature);
+      fd.append('folder', sig.folder);
+      const { data } = await axios.post(
+        `https://api.cloudinary.com/v1_1/${sig.cloud_name}/image/upload`,
+        fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      const newAvatarUrl = data.secure_url;
+      // Update form state
+      setForm(prev => ({ ...prev, avatar_url: newAvatarUrl }));
+      // Auto-save avatar to profile immediately — no need to tap Save
+      await axios.put(`${API}/profile`, { ...form, avatar_url: newAvatarUrl }, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      setForm(prev => ({ ...prev, avatar_url: res.data.url }));
-      toast.success('Photo updated!');
+      updateUser({ avatar_url: newAvatarUrl });
+      toast.success('Profile photo updated!');
     } catch {
       toast.error('Failed to upload photo');
     } finally {
@@ -88,7 +108,7 @@ const ProfilePage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">
+    <div className="min-h-screen bg-[#0A0F1F] px-4 pb-8" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 32px)' }}>
       <div className="max-w-lg mx-auto">
 
         {/* Header */}
