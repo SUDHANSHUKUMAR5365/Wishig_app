@@ -71,10 +71,9 @@ const ProfilePage = () => {
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
       const newAvatarUrl = data.secure_url;
-      // Update form state
       setForm(prev => ({ ...prev, avatar_url: newAvatarUrl }));
-      // Auto-save avatar to profile immediately — no need to tap Save
-      await axios.put(`${API}/profile`, { ...form, avatar_url: newAvatarUrl }, {
+      // Save only avatar_url — don't spread stale form state
+      await axios.put(`${API}/profile`, { avatar_url: newAvatarUrl }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       updateUser({ avatar_url: newAvatarUrl });

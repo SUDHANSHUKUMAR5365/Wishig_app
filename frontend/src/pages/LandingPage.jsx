@@ -60,7 +60,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-[#0A0F1F] overflow-hidden relative">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 backdrop-blur-md" style={{ backgroundColor: 'rgba(10,15,31,0.85)' }}>
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 backdrop-blur-md safe-top" style={{ backgroundColor: 'rgba(10,15,31,0.85)', paddingTop: `calc(env(safe-area-inset-top, 0px) + 12px)`, paddingBottom: '12px' }}>
         <div className="flex items-center gap-2">
           <Sparkles className="w-6 h-6 text-[#D4AF37]" />
           <span className="font-heading text-white text-lg">Celebration QR</span>
