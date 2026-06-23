@@ -73,15 +73,16 @@ const AuthPage = () => {
   const handleAndroidGoogleSignIn = async () => {
     setLoading(true);
     try {
-      // Initialize only once — calling initialize() repeatedly on Android causes a crash
+      // Must use the web client ID (not Android client ID) so the idToken
+      // audience matches what the backend verifies against Google tokeninfo.
+      const webClientId = '351806783870-veiu5qv3t3sjleabu5ngnh8kpckd5gg3.apps.googleusercontent.com';
       try {
         await GoogleAuth.initialize({
-          clientId: '351806783870-veju5qv3t3sjleabu5ngnh8kpckd5gg3.apps.googleusercontent.com',
+          clientId: webClientId,
           scopes: ['profile', 'email'],
+          grantOfflineAccess: true,
         });
-      } catch (_initErr) {
-        // Already initialized — safe to ignore
-      }
+      } catch (_) { /* already initialized */ }
       const googleUser = await GoogleAuth.signIn();
       const idToken = googleUser?.authentication?.idToken;
       if (!idToken) throw new Error('No ID token received');
@@ -95,7 +96,7 @@ const AuthPage = () => {
       toast.success(`Welcome, ${fullUser.name}!`);
       navigate(fullUser.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
-      console.error('Android Google Sign-In error:', err);
+      console.error('[Auth] Android Google Sign-In error:', err?.message || 'Unknown error');
       toast.error('Google login failed: ' + (err?.message || 'Unknown error'));
     } finally {
       setLoading(false);

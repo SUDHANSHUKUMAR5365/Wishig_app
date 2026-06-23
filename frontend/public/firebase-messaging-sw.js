@@ -1,27 +1,41 @@
 /* eslint-disable no-undef */
 // Firebase background messaging service worker
-// This file MUST be at the root of the web app (public/).
+// Must be at public/ root so it is served from the app origin.
+// CRA does NOT inject REACT_APP_* into service workers.
+// The firebase config is embedded here at build time via the
+// INLINE_RUNTIME_CHUNK=false + craco alias, OR you can use
+// a build script that replaces the placeholders below.
+//
+// For local dev: set the values below manually.
+// For production (Render/Vercel): use a build script or inject via SW URL query params.
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// These values are injected at build time via the SW template or set here directly.
-// They must match your REACT_APP_FIREBASE_* env vars.
+// Read config injected via URL query string when registering the SW:
+//   navigator.serviceWorker.register('/firebase-messaging-sw.js?apiKey=...&projectId=...')
+// Falls back to empty strings — Firebase init will be skipped gracefully.
+function getParam(name) {
+  try {
+    return new URL(location.href).searchParams.get(name) || '';
+  } catch {
+    return '';
+  }
+}
+
 const firebaseConfig = {
-  apiKey:            self.FIREBASE_API_KEY            || '',
-  authDomain:        self.FIREBASE_AUTH_DOMAIN        || '',
-  projectId:         self.FIREBASE_PROJECT_ID         || '',
-  storageBucket:     self.FIREBASE_STORAGE_BUCKET     || '',
-  messagingSenderId: self.FIREBASE_MESSAGING_SENDER_ID || '',
-  appId:             self.FIREBASE_APP_ID             || '',
+  apiKey:            getParam('apiKey'),
+  authDomain:        getParam('authDomain'),
+  projectId:         getParam('projectId'),
+  storageBucket:     getParam('storageBucket'),
+  messagingSenderId: getParam('messagingSenderId'),
+  appId:             getParam('appId'),
 };
 
-// Only initialize if config is present (avoids errors when Firebase is not set up)
-if (firebaseConfig.apiKey) {
+if (firebaseConfig.apiKey && firebaseConfig.projectId) {
   firebase.initializeApp(firebaseConfig);
   const messaging = firebase.messaging();
 
-  // Handle background messages
   messaging.onBackgroundMessage((payload) => {
     const title = payload.notification?.title || payload.data?.title || 'Celebration QR';
     const body  = payload.notification?.body  || payload.data?.body  || '';
@@ -36,7 +50,6 @@ if (firebaseConfig.apiKey) {
     });
   });
 
-  // Handle notification click — open the app
   self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     const url = event.notification.data?.url || '/';

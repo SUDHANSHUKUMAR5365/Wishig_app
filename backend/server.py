@@ -79,11 +79,13 @@ cloudinary.config(
 )
 
 # Auth config
-JWT_SECRET = os.environ.get('JWT_SECRET', 'celebration_secret_key')
+JWT_SECRET = os.environ.get('JWT_SECRET')
+if not JWT_SECRET:
+    raise RuntimeError('JWT_SECRET env var is not set — refusing to start with a weak default')
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRE_DAYS = 30
-ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'kumarsudhanshurakesh@gmail.com')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Sud@5365#')
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 
 # Email config for OTP
@@ -94,6 +96,13 @@ SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
 
 # OTP storage (in-memory, expires in 10 min)
 otp_store = {}
+
+def _cleanup_otp_store():
+    """Remove expired OTPs to prevent unbounded memory growth."""
+    now = datetime.now(timezone.utc)
+    expired = [k for k, v in otp_store.items() if now > v['expires']]
+    for k in expired:
+        del otp_store[k]
 
 # ─── Free tier limits ────────────────────────────────────────────────────────
 FREE_PHOTO_LIMIT = 4
@@ -402,6 +411,7 @@ async def forgot_password(body: ForgotPasswordRequest):
         raise HTTPException(status_code=404, detail="Email not found")
     
     otp = str(random.randint(100000, 999999))
+    _cleanup_otp_store()
     otp_store[body.email.lower()] = {"otp": otp, "expires": datetime.now(timezone.utc) + timedelta(minutes=10)}
     
     # Send email
@@ -453,7 +463,13 @@ async def reset_password(body: ResetPasswordRequest):
         del otp_store[email]
         raise HTTPException(status_code=400, detail="OTP expired")
     
+    # Brute-force guard: max 5 attempts per OTP
+    attempts = stored.get('attempts', 0)
+    if attempts >= 5:
+        del otp_store[email]
+        raise HTTPException(status_code=400, detail="Too many attempts. Request a new OTP.")
     if stored['otp'] != body.otp:
+        otp_store[email]['attempts'] = attempts + 1
         raise HTTPException(status_code=400, detail="Invalid OTP")
     
     # Update password
@@ -487,6 +503,18 @@ async def update_profile(body: dict, current_user=Depends(get_current_user)):
     update_data = {k: v for k, v in body.items() if k in allowed}
     if not update_data:
         raise HTTPException(status_code=400, detail="Nothing to update")
+    # Sanitise field lengths
+    if "name" in update_data:
+        update_data["name"] = str(update_data["name"])[:100].strip()
+    if "mobile" in update_data:
+        update_data["mobile"] = str(update_data["mobile"])[:20].strip()
+    if "bio" in update_data:
+        update_data["bio"] = str(update_data["bio"])[:200].strip()
+    if "avatar_url" in update_data:
+        url = str(update_data["avatar_url"])[:500]
+        if url and not url.startswith(("https://res.cloudinary.com", "https://")):
+            raise HTTPException(status_code=400, detail="Invalid avatar URL")
+        update_data["avatar_url"] = url
     await db.users.update_one({"id": current_user["id"]}, {"$set": update_data})
     user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
     return user
@@ -830,7 +858,8 @@ async def send_push(user_id: str, title: str, body: str):
             data={"title": title, "body": body},
             token=user["fcm_token"],
         )
-        await asyncio.get_event_loop().run_in_executor(None, fb_messaging.send, message)
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, fb_messaging.send, message)
     except Exception as e:
         logger.warning(f"FCM push failed for user {user_id}: {e}")
 
@@ -963,17 +992,7 @@ async def check_expiry(current_user=Depends(get_current_user)):
             notified_expiring += 1
     return {"expired": notified_expired, "expiring_soon": notified_expiring}
 
-# --- Notification Token ---
-class RegisterTokenRequest(BaseModel):
-    token: str
-
-@api_router.post("/notifications/register-token")
-async def register_token(body: RegisterTokenRequest, current_user=Depends(get_current_user)):
-    await db.users.update_one(
-        {"id": current_user["id"]},
-        {"$set": {"fcm_token": body.token}}
-    )
-    return {"message": "Token registered"}
+# NOTE: /notifications/register-token is defined above (register_fcm_token). Duplicate removed.
 
 # --- Admin test notification ---
 class TestNotificationRequest(BaseModel):
@@ -1255,15 +1274,18 @@ async def generate_message(body: AIMessageRequest, current_user=Depends(get_curr
 
 app.include_router(api_router)
 
+_cors_origins_raw = os.environ.get('CORS_ORIGINS', '')
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(',') if o.strip()] or ['*']
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
 @app.on_event("startup")

@@ -23,7 +23,8 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      serverClientId: '351806783870-veju5qv3t3sjleabu5ngnh8kpckd5gg3.apps.googleusercontent.com',
+      // serverClientId is read from REACT_APP_GOOGLE_CLIENT_ID at runtime via GoogleAuth.initialize()
+      // Do NOT hardcode the client ID here — set it in frontend/.env
       forceCodeForRefreshToken: true,
     },
     FirebaseMessaging: {

@@ -1863,6 +1863,9 @@ const CelebrationExperience = () => {
   const [tapCount, setTapCount] = useState(0);
   const tapTimeoutRef = useRef(null);
 
+  // Cleanup tap timeout on unmount
+  useEffect(() => () => { if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current); }, []);
+
   const theme = event ? getTheme(event.theme) : getTheme('royal_gold');
 
   // Auto-advance wish recall when no wish was made
@@ -1887,11 +1890,11 @@ const CelebrationExperience = () => {
     axios.get(`${API}/events/${eventId}`)
       .then(r => {
         setEvent(r.data);
-        if (!r.data.lock_pin || alreadyUnlocked) setSongEnabled(true);
+        if (!r.data.lock_pin || sessionStorage.getItem(`unlocked_${eventId}`) === 'true') setSongEnabled(true);
       })
       .catch(() => { toast.error('Event not found'); navigate('/'); })
       .finally(() => setLoading(false));
-  }, [eventId, navigate, alreadyUnlocked]);
+  }, [eventId, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleBlowComplete = () => {
     sessionStorage.setItem(`candles_${eventId}`, 'true');

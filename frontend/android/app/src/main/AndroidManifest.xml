@@ -61,4 +61,10 @@
     <!-- POST_NOTIFICATIONS: required for Firebase push notifications on API 33+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- VIBRATE: required for vibration pattern in push notification payloads -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- WRITE_EXTERNAL_STORAGE: required for QR PNG download on API 28 and below -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+
 </manifest>

@@ -58,7 +58,7 @@ const SupportPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0F1F] py-8 px-4">
+    <div className="min-h-screen bg-[#0A0F1F] px-4 pb-8" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 32px)' }}>
       <div className="max-w-lg mx-auto">
 
         {/* Header */}

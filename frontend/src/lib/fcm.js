@@ -24,7 +24,7 @@ export const getNativeFCMToken = async () => {
     // Request permission
     const { receive } = await FirebaseMessaging.requestPermissions();
     if (receive !== 'granted') {
-      console.warn('FCM permission denied');
+      console.warn('[FCM] Permission denied on native platform');
       return null;
     }
 
@@ -32,7 +32,7 @@ export const getNativeFCMToken = async () => {
     const { token } = await FirebaseMessaging.getToken();
     return token || null;
   } catch (e) {
-    console.warn('Native FCM token error:', e);
+    console.warn('[FCM] Native token error:', e?.message || e);
     return null;
   }
 };
@@ -61,7 +61,7 @@ export const onNativeForegroundMessage = async (callback) => {
     );
     return () => listener.remove();
   } catch (e) {
-    console.warn('Native FCM listener error:', e);
+    console.warn('[FCM] Native listener error:', e?.message || e);
     return () => {};
   }
 };

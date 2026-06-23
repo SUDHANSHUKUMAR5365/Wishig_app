@@ -53,9 +53,12 @@ captures/
 .idea/navEditor.xml
 
 # Keystore files
-# Uncomment the following lines if you do not want to check your keystore files in.
-#*.jks
-#*.keystore
+# Keystore files must NEVER be committed to version control.
+*.jks
+*.keystore
+
+# Signing properties template (contains path hints — keep out of repo)
+SIGNING_PROPERTIES_TEMPLATE.txt
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild

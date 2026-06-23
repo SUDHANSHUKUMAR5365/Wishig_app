@@ -12,7 +12,6 @@ const firebaseConfig = {
 
 const VAPID_KEY = process.env.REACT_APP_FIREBASE_VAPID_KEY;
 
-// Only init if config is present
 const isConfigured = () => !!firebaseConfig.apiKey && !!firebaseConfig.projectId;
 
 let app = null;
@@ -24,6 +23,22 @@ const getFirebaseApp = () => {
     app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
   }
   return app;
+};
+
+/**
+ * Build the SW URL with Firebase config baked in as query params.
+ * This is required because CRA does not inject REACT_APP_* into service workers.
+ */
+const getSwUrl = () => {
+  const params = new URLSearchParams({
+    apiKey: firebaseConfig.apiKey || '',
+    authDomain: firebaseConfig.authDomain || '',
+    projectId: firebaseConfig.projectId || '',
+    storageBucket: firebaseConfig.storageBucket || '',
+    messagingSenderId: firebaseConfig.messagingSenderId || '',
+    appId: firebaseConfig.appId || '',
+  });
+  return `/firebase-messaging-sw.js?${params.toString()}`;
 };
 
 /**
@@ -43,10 +58,11 @@ export const requestNotificationPermission = async () => {
     if (!fbApp) return null;
 
     messaging = getMessaging(fbApp);
-    const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+    const swRegistration = await navigator.serviceWorker.register(getSwUrl());
+    const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swRegistration });
     return token || null;
   } catch (e) {
-    console.warn('FCM token error:', e);
+    console.warn('[FCM] Token error:', e?.message || e);
     return null;
   }
 };
@@ -56,8 +72,11 @@ export const requestNotificationPermission = async () => {
  * onMessageCallback receives { title, body, data }
  */
 export const onForegroundMessage = (callback) => {
-  if (!isConfigured() || !messaging) return () => {};
+  if (!isConfigured()) return () => {};
   try {
+    const fbApp = getFirebaseApp();
+    if (!fbApp) return () => {};
+    if (!messaging) messaging = getMessaging(fbApp);
     return onMessage(messaging, (payload) => {
       const title = payload.notification?.title || payload.data?.title || 'Celebration QR';
       const body = payload.notification?.body || payload.data?.body || '';
