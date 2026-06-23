@@ -1,18 +1,48 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Gift, Camera, QrCode, Cake, Music, PartyPopper,
   LogIn, UserPlus, LayoutDashboard, LogOut, Lock, Wand2,
   FlipHorizontal, Video, MessageSquare, Star, Heart, Gamepad2,
+  Download, X, Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
+import { Capacitor } from '@capacitor/core';
+
+const APK_URL = 'https://github.com/SUDHANSHUKUMAR5365/Wishig_app/releases/download/v1.0.0/celebration-qr-v1.0.0.apk';
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const { user, token, logout, isAdmin } = useAuth();
   const [isHovered, setIsHovered] = useState(false);
+  const [showAppBanner, setShowAppBanner] = useState(false);
+
+  // On native app: skip landing page entirely, go straight to dashboard or login
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      navigate(token ? (isAdmin ? '/admin' : '/dashboard') : '/login', { replace: true });
+    }
+  }, []);
+
+  // On web mobile: show app download banner after 2s (once per session)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+    const dismissed = sessionStorage.getItem('app_banner_dismissed');
+    if (dismissed) return;
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (!isMobile) return;
+    const t = setTimeout(() => setShowAppBanner(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const dismissBanner = () => {
+    setShowAppBanner(false);
+    sessionStorage.setItem('app_banner_dismissed', '1');
+  };
+
+  if (Capacitor.isNativePlatform()) return null;
 
   const features = [
     { icon: Cake,           title: 'Blow Candles',       desc: 'Interactive cake with candle blowing' },
@@ -60,7 +90,7 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-[#0A0F1F] overflow-hidden relative">
       {/* Navbar */}
-      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 backdrop-blur-md safe-top" style={{ backgroundColor: 'rgba(10,15,31,0.85)', paddingTop: `calc(env(safe-area-inset-top, 0px) + 12px)`, paddingBottom: '12px' }}>
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 backdrop-blur-md safe-top" style={{ backgroundColor: 'rgba(10,15,31,0.85)', paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)', paddingBottom: '12px' }}>
         <div className="flex items-center gap-2">
           <Sparkles className="w-6 h-6 text-[#D4AF37]" />
           <span className="font-heading text-white text-lg">Celebration QR</span>
@@ -78,6 +108,9 @@ const LandingPage = () => {
             </>
           ) : (
             <>
+              <a href={APK_URL} className="hidden sm:flex items-center gap-1 text-[#D4AF37] text-sm hover:underline">
+                <Download className="w-4 h-4" /> App
+              </a>
               <Button size="sm" onClick={() => navigate('/login')} variant="outline" className="border-white/10 text-white hover:bg-white/5">
                 <LogIn className="w-4 h-4 mr-1" /> Sign In
               </Button>
@@ -88,6 +121,39 @@ const LandingPage = () => {
           )}
         </div>
       </nav>
+
+      {/* ── App Download Banner (web mobile only) ── */}
+      <AnimatePresence>
+        {showAppBanner && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: 'spring', damping: 20 }}
+            className="fixed bottom-0 left-0 right-0 z-50 p-4"
+          >
+            <div className="max-w-lg mx-auto glass border border-[#D4AF37]/30 rounded-2xl p-4 flex items-center gap-4 shadow-2xl">
+              <div className="w-12 h-12 rounded-xl bg-[#D4AF37]/20 flex items-center justify-center shrink-0">
+                <Smartphone className="w-6 h-6 text-[#D4AF37]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-heading text-sm">Get the App</p>
+                <p className="text-[#94A3B8] text-xs">Better experience on Android</p>
+              </div>
+              <a
+                href={APK_URL}
+                onClick={dismissBanner}
+                className="shrink-0 flex items-center gap-1.5 bg-[#D4AF37] text-black text-sm font-semibold px-4 py-2 rounded-full hover:bg-[#E5C548] transition-colors"
+              >
+                <Download className="w-4 h-4" /> Install
+              </a>
+              <button onClick={dismissBanner} className="shrink-0 text-[#94A3B8] hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Animated background particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -364,13 +430,21 @@ const LandingPage = () => {
           <p className="text-[#94A3B8] mb-8">
             Create interactive celebrations with games, memories, music, videos and surprises.
           </p>
-          <Button
-            data-testid="footer-create-btn"
-            onClick={() => navigate('/create')}
-            className="btn-gold px-10 py-6 text-lg rounded-full gold-glow-hover"
-          >
-            Start Creating Now
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              data-testid="footer-create-btn"
+              onClick={() => navigate('/create')}
+              className="btn-gold px-10 py-6 text-lg rounded-full gold-glow-hover"
+            >
+              Start Creating Now
+            </Button>
+            <a
+              href={APK_URL}
+              className="inline-flex items-center justify-center gap-2 px-10 py-6 text-lg rounded-full border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-colors"
+            >
+              <Download className="w-5 h-5" /> Download App
+            </a>
+          </div>
         </motion.div>
       </div>
 
